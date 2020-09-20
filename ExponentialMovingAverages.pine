@@ -1,0 +1,42 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//###################Exponential Moving Average#####################
+
+showEMA = input(false, title="Show Exponential Moving Averages")
+
+ema_1_len = input(5, title="1. Exp. Moving Average", type=input.integer)
+ema_2_len = input(8, title="2. Exp. Moving Average", type=input.integer)
+ema_3_len = input(13, title="3. Exp. Moving Average", type=input.integer)
+ema_4_len = input(21, title="4. Exp. Moving Average", type=input.integer)
+ema_5_len = input(55, title="6. Exp. Moving Average", type=input.integer)
+
+ema_1_col = color.yellow
+ema_2_col = color.red
+ema_3_col = color.yellow
+ema_4_col = color.white
+ema_5_col = color.blue
+
+ema_1 = showEMA ? matype(forecast_src, ema_1_len, "ema") : na
+ema_2 = showEMA ? matype(forecast_src, ema_2_len, "ema") : na
+ema_3 = showEMA ? matype(forecast_src, ema_3_len, "ema") : na
+ema_4 = showEMA ? matype(forecast_src, ema_4_len, "ema") : na
+ema_5 = showEMA ? matype(forecast_src, ema_5_len, "ema") : na
+
+plot(ema_1, color=ema_1_col, linewidth=1, offset=-1 * bar, title="1. Exp. Moving Average")
+plot(ema_2, color=ema_2_col, linewidth=1, offset=-1 * bar, title="2. Exp. Moving Average")
+plot(ema_3, color=ema_3_col, linewidth=1, offset=-1 * bar, title="3. Exp. Moving Average")
+plot(ema_4, color=ema_4_col, linewidth=1, offset=-1 * bar, title="4. Exp. Moving Average")
+plot(ema_5, color=ema_5_col, linewidth=1, offset=-1 * bar, title="5. Exp. Moving Average")

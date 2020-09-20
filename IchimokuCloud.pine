@@ -1,0 +1,42 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//########################### Ichimoku Cloud ########################################
+showIchimokuCloud = input(false, "Show Ichimoku Cloud")
+showConversionLine = input(false, "Show Conversion Line")
+conversionPeriods = input(9, minval=1, title="Conversion Line Periods"),
+showBaseLine = input(false, "Show Base Line")
+basePeriods = input(26, minval=1, title="Base Line Periods")
+laggingSpan2Periods = input(52, minval=1, title="Lagging Span 2 Periods"),
+displacement = input(26, minval=1, title="Displacement")
+
+donchian(len) => avg(lowest(len), highest(len))
+
+conversionLine = showIchimokuCloud ? donchian(conversionPeriods) : na
+conversionLine1 = showConversionLine ? conversionLine : na
+
+baseLine = showIchimokuCloud ? donchian(basePeriods) : na
+baseLine1 = showBaseLine ? baseLine : na
+
+leadLine1 = showIchimokuCloud ? avg(conversionLine, baseLine) : na
+leadLine2 = showIchimokuCloud ? donchian(laggingSpan2Periods) : na
+
+plot(conversionLine1, color=#0496ff, title="Conversion Line")
+plot(baseLine1, color=#991515, title="Base Line")
+plot(close, offset = -displacement + 1, color=#459915, title="Lagging Span", display=display.none)
+
+p1_cloud = plot(leadLine1, offset = displacement - 1, color=color.green, title="Lead 1")
+p2_cloud = plot(leadLine2, offset = displacement - 1, color=color.red, title="Lead 2")
+fill(p1_cloud, p2_cloud, color = leadLine1 > leadLine2 ? color.green : color.red) 

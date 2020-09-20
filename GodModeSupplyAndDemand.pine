@@ -1,0 +1,123 @@
+//@version=4
+//Massive thank you to LEGION, LazyBear, xSilas, Ni6HTH4wK, sco77m4r7and, SNOW_CITY, oh92,
+//... alexgrover, cI8DH, DonovanWall and shtcoinr for doing the initial builds, building 
+//... indicators that I incorporated into this script or just generally giving me a hand 
+//... when needed.
+
+tag0 = "Godmode"
+
+study(tag0 + " 4.0.2", tag0 + " Supply/Demand", true)
+
+//Interior
+src0 = input(hlc3, "Source")
+len0 = input(9, "Channel Length")
+len1 = input(26, "Average Length")
+len2 = input(13, "Short length")
+cou0 = input(5, "Count")
+smo0 = input(false, "Smoothing")
+
+//Engine
+src1 = security(syminfo.tickerid, timeframe.period, src0)
+
+ttsi(_src, _len0, _len1) =>
+    pc = change(_src) / avg(_src, _src[1])
+    ma0 = ema(pc, _len0)
+    ma1 = ema(ma0, _len1)
+    apc = abs(_src - _src[1])
+    ma2 = ema(apc, _len0)
+    ma3 = ema(ma2, _len1)
+    ttsi = 100 * (ma1 / ma3)
+    ttsi
+
+tci_1(_src) =>
+    ema((_src - ema(_src, len0)) / (0.025 * ema(abs(_src - ema(_src, len0)), len0)), len1) + 
+       50
+tci_2(_src) =>
+    ema((_src - ema(_src, len0)) / (0.025 * ema(abs(_src - ema(_src, len0)), len0)), len1) + 
+       50
+
+mf_1(_src) =>
+    rsi(sum(volume * (change(_src) <= 0 ? 0 : _src), len2), sum(volume * (change(_src) >= 0 ? 0 : _src), len2))
+mf_2(_src) =>
+    rsi(sum(volume * (change(_src) <= 0 ? 0 : _src), len2), sum(volume * (change(_src) >= 0 ? 0 : _src), len2))
+
+willy(_src) =>
+    60 * (_src - highest(_src, len1)) / (highest(_src, len1) - lowest(_src, len1)) + 
+       80
+
+csi(_src) =>
+    avg(rsi(_src, len2), ttsi(_src, len0, len1) * 50 + 50)
+
+godmode(_src) =>
+    avg(tci_1(_src), csi(_src), mf_1(_src), willy(_src))
+
+tradition(_src) =>
+    avg(tci_2(_src), mf_2(_src), rsi(_src, len2))
+
+wt0 = godmode(src1)
+swt0 = sma(wt0, len0)
+
+gm = smo0 ? swt0 : wt0
+
+gr = 0
+incrementer_up = gm > 70 ? 1 : 0
+if incrementer_up
+    gr := nz(gr[1], 0) + incrementer_up
+    gr
+else
+    gr = 0
+    gr
+grH = if gr >= cou0
+    x = high
+    x
+grL = if gr >= cou0
+    y = low
+    y
+grh = fixnan(grH)
+grl = fixnan(grL)
+
+gs = 0
+incrementer_down = gm < 30 ? 1 : 0
+if incrementer_down
+    gs := nz(gs[1], 0) + incrementer_down
+    gs
+else
+    gs = 0
+    gs
+gsH = if gs >= cou0
+    x = high
+    x
+gsL = if gs >= cou0
+    y = low
+    y
+gsh = fixnan(gsH)
+gsl = fixnan(gsL)
+
+gsdx = 0
+incrementer_both = gm > 70 or gm < 30 ? 1 : 0
+if incrementer_both
+    gsdx := nz(gsdx[1], 0) + incrementer_both
+    gsdx
+else
+    gsdx = 0
+    gsdx
+gsdH = if gsdx >= cou0
+    x = high
+    x
+gsdL = if gsdx >= cou0
+    y = low
+    y
+gsdh = fixnan(gsdH)
+gsdl = fixnan(gsdL)
+
+//Chassis
+p1 = plot(gsh, "High Support", color.lime, 1, plot.style_circles)
+p2 = plot(gsl, "Low Support", color.green, 1, plot.style_circles)
+p3 = plot(grh, "High Resistance", color.red, 1, plot.style_circles)
+p4 = plot(grl, "Low Resistance", color.fuchsia, 1, plot.style_circles)
+p5 = plot(gsdh, "High Supply Above/Demand Below", color.orange, 1, plot.style_circles)
+p6 = plot(gsdl, "Low Supply Above/Demand Below", color.yellow, 1, plot.style_circles)
+
+fill(p1, p2, color.olive)
+fill(p3, p4, color.maroon)
+fill(p5, p6, color.blue)

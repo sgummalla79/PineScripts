@@ -1,0 +1,43 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//########################### View Super Trend ########################################
+
+viewSuperTrend = input(title="View Super Trend on chart", type=input.bool, defval=false)
+colorBB = input(title="Color of the BB with Super Trend", type=input.bool, defval=false)
+factor = input(title="Super Trend", defval=4, minval=1, maxval=100)
+ATR = input(title="ATR", defval=12, minval=1, maxval=100)
+
+Up = hl2 - Factor * atr(ATR)
+Dn = hl2 + Factor * atr(ATR)
+TUp = 0.0
+TUp := forecast_src[1] > TUp[1] ? max(Up, TUp[1]) : Up
+TDown = 0.0
+TDown := forecast_src[1] < TDown[1] ? min(Dn, TDown[1]) : Dn
+Trend = 0
+Trend := forecast_src > TDown[1] ? 1 : forecast_src < TUp[1] ? -1 : nz(Trend[1], 1)
+Tsl = (Trend == 1) ? TUp : TDown
+TslView = (viewSuperTrend == true) ? Tsl : na
+
+linecolorATR = (Trend == 1) ? color.green : color.red
+linecolorPrice = (forecast_src >= basis) ? color.green : color.red
+linecolor = colorBB ? linecolorATR : linecolorPrice
+
+plot(TslView, color=linecolorATR, style=plot.style_line, linewidth=1, title="SuperTrend", editable=false)
+
+p1 = plot(upper, color=linecolor, title="Upper Band", editable=false)
+plot(basis, color=color.white, title="Moving Average", editable=false)
+p2 = plot(lower, color=linecolor, title="Lower Band", editable=false)
+fill(p1, p2, color=linecolor, title="Background", editable=false)

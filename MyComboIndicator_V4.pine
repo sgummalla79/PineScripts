@@ -1,0 +1,474 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = 1
+ema_type = 2
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+//1. Simple Moving Average
+//2. Exponential Moving Average
+//3. Hull Moving Average
+//4. Weighted Moving Average
+//5. Voulme Weighted Moving Average
+
+matype(_src, _len, _type, _res) =>
+    symSrc = _res == "" ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
+    _len == 0 ? _src : (_type==1 ? sma(symSrc,_len) : _type==2 ? ema(symSrc,_len) : _type==3 ? wma(2*wma(symSrc, _len/2)-wma(symSrc, _len), round(sqrt(_len))) : _type==4 ? wma(symSrc, _len) : _type==5 ? vwma(symSrc, _len) : na)
+
+//########################### Exit Strategy Based on Percentage between vwap and price ########################################
+
+percent_diff_len=input(13, title="Percent Difference Length")
+percent_diff_caution_level = input(5, title="Caution Level 1 to 5", type=input.integer, minval=1, maxval=5)
+percent_diff_res= input(title="Percent Difference Resolution", type=input.resolution, defval="1D")
+percent_diff_start = security(syminfo.tickerid, percent_diff_res, time)
+percent_diff_level1=input(1.28)
+percent_diff_level2=input(2.1)
+percent_diff_level3=input(2.5)
+percent_diff_level4=input(3.09)
+percent_diff_level5=input(4.1)
+
+newSession = iff(change(percent_diff_start), 1, 0)
+vwapsum = float(na)
+vwapsum := iff(newSession, hl2*volume, vwapsum[1]+hl2*volume)
+volumesum = float(na)
+volumesum := iff(newSession, volume, volumesum[1]+volume)
+v2sum = float(na)
+v2sum := iff(newSession, volume*hl2*hl2, v2sum[1]+volume*hl2*hl2)
+myvwap = vwapsum/volumesum
+
+xSMA = myvwap
+nRes = abs(forecast_src - xSMA) * 100 / forecast_src
+nRes3 = sma(nRes,percent_diff_len)
+
+color2 = color.black
+caution_level = 0
+if nRes>percent_diff_level1 and nRes<percent_diff_level2
+    caution_level := 1
+    color2 := color.navy
+else if nRes>percent_diff_level2 and nRes<percent_diff_level3
+    caution_level := 2
+    color2 := color.blue
+else if nRes>percent_diff_level3 and nRes<percent_diff_level4
+    caution_level := 3
+    color2 := color.orange
+else if nRes>percent_diff_level4 and nRes<percent_diff_level5
+    caution_level := 4
+    color2 := color.maroon
+else if nRes>percent_diff_level5
+    caution_level := 5
+    color2 := color.red
+
+plotshape(caution_level > percent_diff_caution_level - 1, title="Caution Level",  style=shape.circle, location=location.abovebar, color=color2, transp=0,editable=false)
+
+//################ Bollinger Bands ##################
+
+showBB = input(false, title="Show Bollinger Bands")
+bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
+bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
+
+bb_stdev = stdev(forecast_src, bb_length)
+bb_basis = matype(forecast_src, bb_length, 1, "")
+bb_upper = bb_basis + bb_stdDev_factor * bb_stdev
+bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
+
+p1 = plot(showBB ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
+plot(showBB ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+p2 = plot(showBB ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
+fill(p1, p2, color=color.green, title="Background", transp=90)    
+    
+//###############################Support/Resistance Envelope##################
+// Description:
+// - High and Low Envelope channel with median line and 'sigma' offsets to try and encapsulate
+//   price flow and quickly locate likely areas of support and resistance within smaller trend.
+
+showSRChannel = input(false, title="Show Support Resistance Channel")
+
+srlength  = input(defval = 25, title = "Envelope Length", minval = 1, maxval = 1000)
+sigma   = input(defval = 1.0, title = "Sigma Multiply", minval = 0.01, step = 0.1)
+
+upperEnvelope   = highest(high, srlength)
+lowerEnvelope   = lowest(low, srlength)
+envelopeSigma   = ((upperEnvelope - lowerEnvelope) / 8) * sigma
+envelopeMedian  = (upperEnvelope + lowerEnvelope) / 2
+upperSigma    =  envelopeMedian + envelopeSigma
+lowerSigma    = envelopeMedian - envelopeSigma
+
+
+plot(showSRChannel ? upperEnvelope : na, title = "Upper Envelope", color = #66FFFF, linewidth = 1, display=display.none)
+plot(showSRChannel ? upperSigma : na, title = "Upper Sigma", color = #66FFFF, linewidth = 1, style = plot.style_line)
+plot(showSRChannel ? envelopeMedian : na, title = "Median", color = color.silver, linewidth = 1, style = plot.style_circles)
+plot(showSRChannel ? lowerSigma : na, title = "Lower Sigma", color = #FF1133, linewidth = 1, style = plot.style_line)
+plot(showSRChannel ? lowerEnvelope : na, title = "Lower Envelope", color = #FF1133, linewidth = 1, display=display.none)
+
+//################### Trend Trade System #####################
+
+show_tts = input(true, title="Show Trend Trade System") 
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap_res = input(title="Trend Trade System Exit VWAP Resolution", type=input.resolution, defval="1W")
+tts_vwap_diff_tf_length = input(13, title="Trend Trade System VWAP High TF Length") 
+tts_rsi_len = input(14, minval=1, title="RSI Length")
+
+tts_ema_val = matype(low, tts_ema_length, 2, "")
+tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
+tts_vwap_val_diff_tf = matype(vwap, tts_vwap_diff_tf_length, 2, tts_vwap_res)
+tts_up = rma(max(change(src), 0), tts_rsi_len)
+tts_down = rma(-min(change(src), 0), tts_rsi_len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+
+plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(show_tts ? tts_vwap_val_diff_tf : na, color= color.yellow, style=plot.style_line, title="Trend Trade System VWAP Week Line")
+
+//buy setup
+//up trend buy
+green_cond = (tts_rsi > 55 and close > tts_ema_val) ? 1 : 0
+barcolor(show_tts and green_cond ? color.lime : na, editable=false) 
+
+teal_cond = (tts_rsi > 50 and close > tts_ema_val) ? 1 : 0
+barcolor(show_tts and teal_cond ? color.teal : na, editable=false)
+
+buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis) ? 1 : 0
+buy_exit = (close < tts_vwap_val_diff_tf) ? 1 : 0
+
+bars_since_buy_bar = barssince(tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis and buy[1] != buy)
+bars_since_buy_exit_bar = barssince(close < tts_vwap_val_diff_tf and buy_exit[1] != buy_exit)
+
+plotchar(show_tts and buy and buy[1] != buy and bars_since_buy_bar[1] > bars_since_buy_exit_bar[1], title="Buy", char='B', color=color.lime, transp=0, location=location.abovebar, editable=false)
+plotchar(show_tts and buy_exit and buy_exit[1] != buy_exit and bars_since_buy_bar[1] < bars_since_buy_exit_bar[1], title="Exit", char="E", color=color.red, transp=0, location=location.abovebar, editable=false)
+
+//sell setup
+//down trend sell
+red_cond = (tts_rsi < 45 and close < tts_ema_val) ? 1 : 0
+barcolor(show_tts and red_cond ? color.red : na, editable=false)
+
+orange_cond = (tts_rsi < 50 and close < tts_ema_val) ? 1 : 0
+barcolor(show_tts and orange_cond ? color.orange : na, editable=false)
+
+sell = (tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis) ? 1 : 0
+sell_exit = (close > tts_vwap_val_diff_tf) ? 1 : 0
+
+bars_since_sell_bar = barssince(tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis and sell[1] != sell)
+bars_since_sell_exit_bar = barssince(close > tts_vwap_val_diff_tf and sell_exit[1] != sell_exit)
+
+plotchar(show_tts and sell and sell[1] != sell and bars_since_sell_bar[1] > bars_since_sell_exit_bar[1], title="Sell", char='S', color=color.red, transp=0, location=location.belowbar, editable=false)
+plotchar(show_tts and sell_exit and sell_exit[1] != sell_exit and bars_since_sell_bar[1] < bars_since_sell_exit_bar[1], title="Exit", char="E", color=color.lime, transp=0, location=location.belowbar, editable=false)
+
+//###################Dynamic Moving Averages#####################
+
+showDMA = input(false, title="Show Dynamic Moving Averages")
+
+dma_1_type = input(5, title="1. SMA 2. EMA 3. HMA 4.WMA 5.VWMA", type=input.integer, minval=1, maxval=5)
+dma_1_tf = input(title="1. Dynamic MA Resolution", type=input.resolution, defval="180")
+dma_1_len = input(3, title="1. Dynamic. Moving Average", type=input.integer)
+dma_1_col = color.red
+dma_1 = matype(forecast_src, dma_1_len, dma_1_type, "")
+
+dma_2_type = input(5, title="1. SMA 2. EMA 3. HMA 4.WMA 5.VWMA", type=input.integer, minval=1, maxval=5)
+dma_2_tf = input(title="1. Dynamic MA Resolution", type=input.resolution, defval="180")
+dma_2_len = input(8, title="2. Dynamic. Moving Average", type=input.integer)
+dma_2_col = color.green
+dma_2 = matype(forecast_src, dma_2_len, dma_2_type,"")
+
+plot(showDMA ? dma_1 : na, color=dma_1_col, linewidth=1, offset=-1 * bar, title="1. Dynamic Moving Average", display= display.none)
+plot(showDMA ? dma_2 : na, color=dma_2_col, linewidth=1, offset=-1 * bar, title="2. Dynamic Moving Average")
+
+//###################Exponential Moving Average#####################
+
+showEMA = input(false, title="Show Exponential Moving Averages")
+
+ema_1_len = input(8, title="1. Exp. Moving Average", type=input.integer)
+ema_2_len = input(21, title="2. Exp. Moving Average", type=input.integer)
+ema_3_len = input(34, title="3. Exp. Moving Average", type=input.integer)
+ema_4_len = input(55, title="4. Exp. Moving Average", type=input.integer)
+
+ema_1_col = color.red
+ema_2_col = color.white
+ema_3_col = color.yellow
+ema_4_col = color.blue
+
+ema_1 = showEMA ? matype(forecast_src, ema_1_len, 2, "") : na
+ema_2 = showEMA ? matype(forecast_src, ema_2_len, 2, "") : na
+ema_3 = showEMA ? matype(forecast_src, ema_3_len, 2, "") : na
+ema_4 = showEMA ? matype(forecast_src, ema_4_len, 2, "") : na
+
+plot(ema_1, color=ema_1_col, linewidth=1, offset=-1 * bar, title="1. Exp. Moving Average", display= display.none)
+plot(ema_2, color=ema_2_col, linewidth=1, offset=-1 * bar, title="2. Exp. Moving Average", display= display.none)
+plot(ema_3, color=ema_3_col, linewidth=1, offset=-1 * bar, title="3. Exp. Moving Average", display= display.none)
+plot(ema_4, color=ema_4_col, linewidth=1, offset=-1 * bar, title="4. Exp. Moving Average")
+
+//###################EMA Strategy#####################
+
+showEMAStrategy = input(false, title="Show Exponential Moving Averages Strategy")
+
+ema_strategy_1 = matype(forecast_src, 8, 2, "")
+ema_strategy_2 = matype(forecast_src, 13, 2, "")
+ema_strategy_3 = matype(forecast_src, 21, 2, "")
+ema_strategy_4 = matype(forecast_src, 55, 2, "")
+
+buy_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 > ema_strategy_2 and ema_strategy_3 > ema_strategy_4
+sell_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 < ema_strategy_2 and ema_strategy_3 < ema_strategy_4
+
+plotshape(showEMAStrategy and buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
+plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)
+
+//###################Simple Moving Average#####################
+
+showMA = input(false, title="Show Moving Averages")
+
+ma_1_len = input(100, title="4. Moving Average", type=input.integer)
+ma_2_len = input(200, title="5. Moving Average", type=input.integer)
+
+ma_1_col = color.purple
+ma_2_col = color.green
+
+ma_1 = showMA ? matype(forecast_src, ma_1_len, 1, "") : na
+ma_2 = showMA ? matype(forecast_src, ma_2_len, 1, "") : na
+
+plot(ma_1, color=ma_1_col, linewidth=1, offset=-1 * bar, title="1. Simple Moving Average")
+plot(ma_2, color=ma_2_col, linewidth=1, offset=-1 * bar, title="2. Simple Moving Average")
+
+//########################### TD Sequential ########################################
+showTDSequential = input(false, "Show TD Sequential")
+showSetup = input(true, "Show setup")
+showCountdown = input(false, "Show countdown")
+showPerfect = input(true, "Show perfect counts")
+invertColours = input(false, "Invert colours")
+showOnlyCompletion = input(false, "Only show completions")
+showTDST = input(true, "Show TDST Support and Resistance")
+setupRecyclesOnNextBar = input(true, "Setup recycles on next bar")
+flip = input(false, "Setup commences after TD Price Flip")
+showRisk = input(false, "Show risk line")
+volatilitySmoothing = input(false, "Volatility smoothing (relaxed setup)")
+
+shortColour = invertColours ? color.red : color.green
+longColour = invertColours ? color.green : color.red
+smoothedColour = color.black
+
+setupShort = int(na)
+setupLong = int(na)
+setupCount = int(na)
+setupColour = color(na)
+perfectSetup = bool(na)
+
+setupShort := if close < close[4] and (not volatilitySmoothing or close < close[5])
+    0
+else
+    if flip
+        if nz(setupShort[1]) == 0 and close[1] < close[5] and close > close[4]
+            1
+        else
+            if nz(setupShort[1]) == 0
+                0
+            else
+                nz(setupShort[1] + 1)
+    else
+        if setupShort[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupShort[1] + 1)
+
+setupLong := if close > close[4] and (not volatilitySmoothing or close > close[5])
+    0
+else
+    if flip
+        if nz(setupLong[1]) == 0 and close[1] > close[5] and close < close[4]
+            1
+        else
+            if nz(setupLong[1]) == 0
+                0
+            else
+                nz(setupLong[1] + 1)
+    else
+        if setupLong[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupLong[1] + 1)
+
+setupCount := max(setupShort, setupLong)
+setupColour := setupShort > 0 ? setupLong > 0 ? smoothedColour : shortColour : longColour
+
+perfectSetup := showPerfect and (setupShort == 8 and high >= high[1] and high >= high[2] or 
+   setupShort == 9 and high >= high[2] and high >= high[3] or 
+   setupLong == 8 and low <= low[1] and low <= low[2] or 
+   setupLong == 9 and low <= low[2] and low <= low[3])
+
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false)
+
+plotchar(showTDSequential and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false)
+plotchar(showTDSequential and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false)
+
+
+cdownShort = int(na)
+cdownLong = int(na)
+cdownColour = color(na)
+cdownCount = int(na)
+perfect8 = float(na)
+perfectCountdown = bool(na)
+lastCompletedSetup = int(na)
+setupHigh = float(na)
+setupLow = float(na)
+cancelCountdown = bool(na)
+recycleCountdown = bool(na)
+LONG = -1
+SHORT = 1
+CANCELLED = 0
+
+recycleCountdown := if setupShort == 9 and lastCompletedSetup[1] == SHORT or setupLong == 9 and lastCompletedSetup[1] == LONG
+    highest(9) - lowest(9) >= setupHigh[1] - setupLow[1] and 
+       (setupHigh[1] - setupLow[1]) * 1.618 > highest(9) - lowest(9)
+
+highest_1 = highest(9)
+setupHigh := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+   setupLong == 9 and lastCompletedSetup[1] != LONG ? highest_1 : setupHigh[1]
+lowest_1 = lowest(9)
+setupLow := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+   setupLong == 9 and lastCompletedSetup[1] != LONG ? lowest_1 : setupLow[1]
+
+cancelCountdown := lastCompletedSetup[1] == SHORT and high < setupLow or 
+   lastCompletedSetup[1] == LONG and low > setupHigh or recycleCountdown
+
+lastCompletedSetup := setupLong == 9 ? LONG : 
+   setupShort == 9 ? SHORT : cdownShort[1] == 13 and setupShort[1] != 9 or 
+   cdownLong[1] == 13 and setupLong[1] != 9 or cancelCountdown ? CANCELLED : 
+   lastCompletedSetup[1]
+
+cdownShort := lastCompletedSetup != SHORT or cancelCountdown ? 0 : 
+   close >= high[2] ? nz(cdownShort[1]) % 13 + 1 : nz(cdownShort[1]) % 13
+cdownLong := lastCompletedSetup != LONG or cancelCountdown ? 0 : 
+   close <= low[2] ? nz(cdownLong[1]) % 13 + 1 : nz(cdownLong[1]) % 13
+
+cdownCount := max(cdownShort, cdownLong)
+cdownColour := cdownShort > 0 ? shortColour : longColour
+
+perfect8 := cdownCount < 8 ? na : cdownCount == 8 ? close : perfect8[1]
+perfectCountdown := showPerfect and 
+   (cdownShort == 13 and high >= perfect8 or cdownLong and low <= perfect8)
+
+plotchar(showTDSequential and not perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Countdown 13", char="", text="13", location=location.belowbar, textcolor=cdownColour, transp=0, editable=false)
+plotchar(showTDSequential and perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Perfect Countdown 13", char="⓭", location=location.belowbar, color=cdownColour, transp=0, editable=false)
+
+tdstSupport = float(na)
+tdstResistance = float(na)
+tdRisk = float(na)
+riskbar = int(na)
+
+highest_2 = highest(9)
+tdstResistance := not showTDSequential or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
+lowest_2 = lowest(9)
+tdstSupport := not showTDSequential or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
+
+plot(tdstResistance, title="TDST Resistance", color=longColour, style=plot.style_circles, linewidth=1, editable=false)
+plot(tdstSupport, title="TDST Support", color=shortColour, style=plot.style_circles, linewidth=1, editable=false)
+
+if not showTDSequential or not showRisk
+    tdRisk := na
+    tdRisk
+else
+    if setupLong == 9
+        riskbar := -1 * lowestbars(9)[0]
+        tdRisk := low[riskbar] - tr[riskbar]
+        tdRisk
+    else
+        if setupShort == 9
+            riskbar = -1 * highestbars(9)[0]
+            tdRisk := high[riskbar] + tr[riskbar]
+            tdRisk
+        else
+            tdRisk := min(open, close) < tdRisk[1] and max(open, close) > tdRisk[1] ? na : tdRisk[1]
+            tdRisk
+
+plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
+
+//########################### LUCID SAR ########################################
+
+showLucidSAR = input(false, title="Show Lucid SAR")
+AF_initial = input(0.02)
+AF_increment = input(0.02)
+AF_maximum = input(0.2)
+
+LUCID_SAR(initial, increment, maximum) =>
+
+    // start with uptrend
+    uptrend = true
+    new_trend = false
+    EP = high
+    SAR = low
+    AF = AF_initial
+
+    // before a reversal, the reversal_state is 0;
+    // after a reversal, within the same candle as the reversal,
+    // the reversal_state can be 1 (uptrend) or 2 (downtrend)
+    reversal_state = 0
+
+    if not na(uptrend[1]) and not na(new_trend[1])
+        if reversal_state == 0
+            if uptrend[1]
+                EP := max(high, EP[1])
+            else
+                EP := min(low, EP[1])
+            if new_trend[1]
+                AF := AF_initial
+            else
+                if EP != EP[1]
+                    AF := min(AF_maximum, AF[1] + AF_increment)
+                else
+                    AF := AF[1]
+            SAR := SAR[1] + AF * (EP - SAR[1])
+            if uptrend[1]
+                SAR := min(SAR, low[1])
+                if not na(low[2])
+                    SAR := min(SAR, low[2])
+                if SAR > low
+                    uptrend := false
+                    new_trend := true
+                    SAR := max(high, EP[1])
+                    EP := min(low, low[1])
+                    reversal_state := 2
+                else
+                    uptrend := true
+                    new_trend := false
+            else
+                SAR := max(SAR, high[1])
+                if not na(high[2])
+                    SAR := max(SAR, high[2])
+                if SAR < high
+                    uptrend := true
+                    new_trend := true
+                    SAR := min(low, EP[1])
+                    EP := max(high, high[1])
+                    reversal_state := 1
+                else
+                    uptrend := false
+                    new_trend := false
+        else
+            if reversal_state == 1
+                EP := high
+                if low < SAR
+                    SAR := EP
+                    EP := low
+                    reversal_state == 2
+                    uptrend := false
+            else
+                EP := low
+                if high > SAR
+                    SAR := EP
+                    EP := high
+                    reversal_state == 1
+                    uptrend := true
+    SAR
+
+L_SAR = showLucidSAR ? LUCID_SAR(AF_initial, AF_increment, AF_maximum) : na
+
+plot(L_SAR, color = color.blue, style = plot.style_cross, linewidth = 2, title="Lucid SAR", editable=false)

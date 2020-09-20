@@ -1,0 +1,29 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//###################EMA Strategy#####################
+
+showEMAStrategy = input(false, title="Show Exponential Moving Averages Strategy")
+
+ema_strategy_1 = matype(forecast_src, 8, "ema")
+ema_strategy_2 = matype(forecast_src, 13, "ema")
+ema_strategy_3 = matype(forecast_src, 21, "ema")
+ema_strategy_4 = matype(forecast_src, 55, "ema")
+
+buy_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 > ema_strategy_2 and ema_strategy_3 > ema_strategy_4
+sell_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 < ema_strategy_2 and ema_strategy_3 < ema_strategy_4
+
+plotshape(showEMAStrategy and buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small)
+plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small)

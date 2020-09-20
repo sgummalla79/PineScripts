@@ -1,0 +1,43 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+
+//########################### fibonacci bands ########################################
+
+show_fbands = input(false, title="Show Fibonacci Bands")
+len_fbands = input(34, title="Length Fib Bands")
+atr_length_fbands = input(8, title="ATR Length Fib Bands")
+
+ma_1 = ema(forecast_src, len_fbands)
+atr_1 = atr(atr_length_fbands)
+
+ma_fbands = show_fbands ? ma_1 : na
+true_range_fbands = show_fbands ? atr_1 : na
+
+upperband3_fbands = show_fbands ? ma_fbands + 4.23 * true_range_fbands : na
+upperband2_fbands = show_fbands ? ma_fbands + 2.62 * true_range_fbands : na
+upperband1_fbands = show_fbands ? ma_fbands + 1.62 * true_range_fbands : na
+
+lowerband1_fbands = show_fbands ? ma_fbands - 1.62 * true_range_fbands : na
+lowerband2_fbands = show_fbands ? ma_fbands - 2.62 * true_range_fbands : na
+lowerband3_fbands = show_fbands ? ma_fbands - 4.23 * true_range_fbands : na
+
+
+plot(upperband3_fbands, color=color.red, linewidth=1)
+plot(upperband2_fbands, color=color.orange, linewidth=1, display=display.none)
+plot(upperband1_fbands, color=color.blue, linewidth=1, display=display.none)
+plot(ma_fbands, color=color.black, linewidth=1)
+plot(lowerband1_fbands, color=color.blue, linewidth=1, display=display.none)
+plot(lowerband2_fbands, color=color.orange, linewidth=1, display=display.none)
+plot(lowerband3_fbands, color=color.red, linewidth=1)

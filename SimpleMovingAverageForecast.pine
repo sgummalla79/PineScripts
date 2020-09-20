@@ -1,0 +1,48 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//###################Moving Average Forecast#####################
+
+showForecast = input(false, title="Show Forecast")
+forecasttype=input(defval="flat", options=["flat", "linreg"], title="MA Forecast Type (flat assumes prices stay the same / linreg does n period LR forecast)")
+linreglen=input(3,title="# of Candles to use in linear regression")
+
+forecast(_type,_src,_flen,_lrlen) => _type=="flat" ? _src : _type=="linreg" ? linreg(_src,_lrlen,_flen) : na
+
+forecast1=forecast(forecasttype, forecast_src,1,linreglen)
+forecast2=forecast(forecasttype, forecast_src,2,linreglen)
+forecast3=forecast(forecasttype, forecast_src,3,linreglen)
+
+ma_1_forecast_col = color.red
+ma_2_forecast_col = color.white
+
+ma_1_forecast_len = input(10, title="1. Forecast Moving Average", type=input.integer)
+ma_2_forecast_len = input(20, title="2. Forecast Moving Average", type=input.integer)
+
+ma_1_forecast_1=showForecast ? ((matype(forecast_src,ma_1_forecast_len-1, sma_type)*(ma_1_forecast_len-1))+forecast1)/ma_1_forecast_len : na
+ma_1_forecast_2=showForecast ? ((matype(forecast_src,ma_1_forecast_len-2, sma_type)*(ma_1_forecast_len-2))+forecast1+forecast2)/ma_1_forecast_len : na
+ma_1_forecast_3=showForecast ? ((matype(forecast_src,ma_1_forecast_len-3, sma_type)*(ma_1_forecast_len-3))+forecast1+forecast2+forecast3)/ma_1_forecast_len : na
+
+ma_2_forecast_1=showForecast ? ((matype(forecast_src,ma_2_forecast_len-1, sma_type)*(ma_2_forecast_len-1))+forecast1)/ma_2_forecast_len : na
+ma_2_forecast_2=showForecast ? ((matype(forecast_src,ma_2_forecast_len-2, sma_type)*(ma_2_forecast_len-2))+forecast1+forecast2)/ma_2_forecast_len : na
+ma_2_forecast_3=showForecast ? ((matype(forecast_src,ma_2_forecast_len-3, sma_type)*(ma_2_forecast_len-3))+forecast1+forecast2+forecast3)/ma_2_forecast_len : na
+
+plot(ma_1_forecast_1,color=ma_1_forecast_col, linewidth=2, style=plot.style_circles, offset=1-bar, show_last=1, editable=false)
+plot(ma_1_forecast_2,color=ma_1_forecast_col, linewidth=2, style=plot.style_circles, offset=2-bar, show_last=1, editable=false)
+plot(ma_1_forecast_3,color=ma_1_forecast_col, linewidth=2, style=plot.style_circles, offset=3-bar, show_last=1, editable=false)
+
+plot(ma_2_forecast_1,color=ma_2_forecast_col, linewidth=2, style=plot.style_circles, offset=1-bar, show_last=1, editable=false)
+plot(ma_2_forecast_2,color=ma_2_forecast_col, linewidth=2, style=plot.style_circles, offset=2-bar, show_last=1, editable=false)
+plot(ma_2_forecast_3,color=ma_2_forecast_col, linewidth=2, style=plot.style_circles, offset=3-bar, show_last=1, editable=false)

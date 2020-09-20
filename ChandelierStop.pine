@@ -1,0 +1,43 @@
+//@version=4
+study("MCI", overlay=true, max_bars_back=900)
+
+src = close
+sma_type = "sma"
+ema_type = "ema"
+incompletecandles = input(true, title="Include current unclosed current candle")
+bar = incompletecandles ? 0 : 1
+forecast_src = src[bar]
+
+matype(_src, _len, _type) =>
+    sma_1 = sma(_src, _len)
+    ema_1 = ema(_src, _len)
+    _len == 0 ? _src : (_type == "sma" ? sma_1 : ema_1)
+    
+//########################### ChandelierStop ########################################
+
+//input variables
+showChandelierStop = input(false, title="Show Chandelier Stop")
+Length=input(title="Look Back Period", type=input.integer, defval=8)
+ATRPeriod=input(title="ATR Period", type=input.integer, defval=22)
+Mult=input(title="ATR Multiplier", type=input.integer, defval=4)
+
+//calculate stop value
+short_stop = lowest(Length)+Mult*atr(ATRPeriod)
+long_stop  = highest(Length)-Mult*atr(ATRPeriod)
+
+shortvs = 0.0
+longvs = 0.0
+
+shortvs:=na(shortvs[1]) ? short_stop : iff(close>shortvs[1], short_stop , min(short_stop,shortvs[1]))
+longvs:=na(longvs[1]) ? long_stop : iff(close<longvs[1], long_stop, max(long_stop,longvs[1]))
+
+longswitch=iff (close>=shortvs[1] and close[1]<shortvs[1] , 1 ,  0)
+shortswitch=iff (close<=longvs[1] and close[1]>longvs[1] ,  1 ,  0)
+
+direction = 0.0
+direction := iff(na(direction[1]), 0, iff (direction[1]<=0 and longswitch, 1, iff (direction[1]>=0 and shortswitch, -1, direction[1])))
+			
+pc = showChandelierStop ? (direction > 0 ? longvs : shortvs) : na
+
+plot(pc, color=(direction>0?color.green:color.red), style=plot.style_line, linewidth=1)
+plot(pc, color=(direction>0?color.green:color.red), style=plot.style_line, linewidth=1)

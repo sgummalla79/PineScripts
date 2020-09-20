@@ -1,0 +1,58 @@
+// plotIndicatorLines = input(true, title="Plot Indicator Lines")
+// indicator_ema_length = input(26, title="Indicator EMA Length") 
+// indicator_vwap_length = input(13, title="Indicator VWMA Length") 
+
+// indicator_ema_val = plotIndicatorLines ? ema(low, indicator_ema_length) : na
+// indicator_vwap_val = plotIndicatorLines ? ema(vwap, indicator_vwap_length) : na
+
+show_tts = input(true, title="Show Trend Trade System") 
+tts_src = close
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length") 
+tts_len = input(14, minval=1, title="RSI Length")
+
+tts_ema_val = ema(low, tts_ema_length)
+tts_vwap_val = ema(vwap, tts_vwap_length)
+tts_up = rma(max(change(tts_src), 0), len)
+tts_down = rma(-min(change(tts_src), 0), len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+
+plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+
+//up trend buy and buy pullback
+green_cond = (tts_rsi > 55 and close > tts_ema_val) ? 1 : 0
+barcolor(show_tts and green_cond ? color.lime : na) 
+
+orange_cond = (tts_rsi > 50 and close > tts_ema_val) ? 1 : 0
+barcolor(show_tts and orange_cond ? color.teal : na)
+
+//down trend buy and buy pullback
+red_cond = (tts_rsi < 45 and close < tts_ema_val) ? 1 : 0
+barcolor(show_tts and red_cond ? color.red : na) 
+
+purple_cond = (tts_rsi < 50 and close < tts_ema_val) ? 1 : 0
+barcolor(show_tts and purple_cond ? color.orange : na)
+
+//Exit Completely: In an uptrend, close your entire position on bars colored blue or red. (Again, closed bars)
+//Exit Completely: In a downtrend, close your entire position on bars colored orange or green.
+blue_cond = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val) ? 1 : 0
+barcolor(show_tts and blue_cond ? color.blue : na)
+
+// buy_pullback = (tts_rsi > 50 and close < tts_vwap_val) ? 1 : na
+// plotshape(buy_pullback, title="Buy Pullback", location=location.top, offset=0, style=shape.circle,color=color.lime, transp=0)
+
+// sell_pullback = (tts_rsi < 50 and close > tts_vwap_val) ? 1 : na
+// plotshape(sell_pullback, title="Sell Pullback", location=location.bottom, offset=0, style=shape.circle, color=color.red, transp=0)
+
+// buy = (tts_rsi > 50 and close < tts_vwap_val) ? 1 : na
+// plotshape(buy, style=shape.triangleup, location=location.bottom, color=color.lime, transp=0, offset=0)
+
+// sell = (tts_rsi < 50 and close > tts_vwap_val) ? 1 : na
+// plotshape(sell, style=shape.triangledown, location=location.top, color=color.red, transp=0, offset=0)
+
+// buy_setup_take_profits = (tts_rsi > 75 and close > tts_ema_val) ? 1 : na
+// plotchar(buy_setup_take_profits, title="Buy Setup Take Profits", location=location.top, offset=0, char='TP', color=color.orange, transp=0)
+
+// sell_setup_take_profits = tts_rsi < 25 and close < tts_ema_val ? tts_rsi-5 : na
+// plotchar(sell_setup_take_profits, title="Sell Setup Take Profits", location=location.bottom, offset=0, char='TP', color=color.orange, transp=0)
