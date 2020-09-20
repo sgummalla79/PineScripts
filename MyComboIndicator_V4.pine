@@ -67,8 +67,7 @@ else if nRes>percent_diff_level5
     caution_char := 'E'
     color2 := color.red
 
-//plotshape(caution_level > percent_diff_caution_level - 1, title="Caution Level",  style=shape.circle, location=location.abovebar, color=color2, transp=0,editable=false)
-plotshape(caution_level > percent_diff_caution_level - 1, color=color2, text='E', textcolor=color.black,style=shape.labeldown,location=location.abovebar)
+//plotshape(caution_level > percent_diff_caution_level - 1, color=color2, text='E', textcolor=color.black,style=shape.labeldown,location=location.abovebar)
 
 //################ Bollinger Bands ##################
 
@@ -87,9 +86,6 @@ p2 = plot(showBB ? bb_lower : na, color=color.green, title="Lower Band", editabl
 fill(p1, p2, color=color.green, title="Background", transp=90)    
     
 //###############################Support/Resistance Envelope##################
-// Description:
-// - High and Low Envelope channel with median line and 'sigma' offsets to try and encapsulate
-//   price flow and quickly locate likely areas of support and resistance within smaller trend.
 
 showSRChannel = input(false, title="Show Support Resistance Channel")
 
@@ -118,6 +114,7 @@ tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
 tts_vwap_res = input(title="Trend Trade System Exit VWAP Resolution", type=input.resolution, defval="1W")
 tts_vwap_diff_tf_length = input(13, title="Trend Trade System VWAP High TF Length") 
 tts_rsi_len = input(14, minval=1, title="RSI Length")
+up_down_trend = input(true, title="Up/Down Trend - Check it for up trend")
 
 tts_ema_val = matype(low, tts_ema_length, 2, "")
 tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
@@ -130,39 +127,46 @@ plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, tit
 plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
 plot(show_tts ? tts_vwap_val_diff_tf : na, color= color.yellow, style=plot.style_line, title="Trend Trade System VWAP Week Line")
 
-//buy setup
-//up trend buy
+//bar colors
 green_cond = (tts_rsi > 55 and close > tts_ema_val) ? 1 : 0
 barcolor(show_tts and green_cond ? color.lime : na, editable=false) 
 
 teal_cond = (tts_rsi > 50 and close > tts_ema_val) ? 1 : 0
 barcolor(show_tts and teal_cond ? color.teal : na, editable=false)
 
-buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis) ? 1 : 0
-buy_exit = (close < tts_vwap_val_diff_tf) ? 1 : 0
-
-bars_since_buy_bar = barssince(tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis and buy[1] != buy)
-bars_since_buy_exit_bar = barssince(close < tts_vwap_val_diff_tf and buy_exit[1] != buy_exit)
-
-plotchar(show_tts and buy and buy[1] != buy and bars_since_buy_bar[1] > bars_since_buy_exit_bar[1], title="Buy", char='B', color=color.lime, transp=0, location=location.abovebar, editable=false)
-plotchar(show_tts and buy_exit and buy_exit[1] != buy_exit and bars_since_buy_bar[1] < bars_since_buy_exit_bar[1], title="Exit", char="E", color=color.red, transp=0, location=location.abovebar, editable=false)
-
-//sell setup
-//down trend sell
 red_cond = (tts_rsi < 45 and close < tts_ema_val) ? 1 : 0
 barcolor(show_tts and red_cond ? color.red : na, editable=false)
 
 orange_cond = (tts_rsi < 50 and close < tts_ema_val) ? 1 : 0
 barcolor(show_tts and orange_cond ? color.orange : na, editable=false)
 
+//buy setup
+//up trend buy
+//show buy/buy exit signal only when uptrend
+up_trend = show_tts and up_down_trend
+buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis) ? 1 : 0
+buy_exit = (close < tts_vwap_val_diff_tf or caution_level > percent_diff_caution_level - 1) ? 1 : 0
+bars_since_buy_bar = barssince(tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis and buy[1] != buy)
+bars_since_buy_exit_bar = barssince(buy_exit and buy_exit[1] != buy_exit)
+
+buy_signal = up_trend and buy and buy[1] != buy and bars_since_buy_bar[1] > bars_since_buy_exit_bar[1]
+plotshape(buy_signal, color=color.green, text='B', textcolor=color.black,style=shape.labelup,location=location.belowbar, editable=false)
+buy_exit_signal = up_trend and buy_exit and buy_exit[1] != buy_exit and bars_since_buy_bar[1] < bars_since_buy_exit_bar[1] ? 1 : 0
+plotshape(buy_exit_signal, color=color.red, text='E', textcolor=color.white,style=shape.labeldown,location=location.abovebar, editable=false)
+
+//sell setup
+//down trend sell
+//show sell/sell exit signal only when downtrend
+down_trend = show_tts and not up_down_trend
 sell = (tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis) ? 1 : 0
-sell_exit = (close > tts_vwap_val_diff_tf) ? 1 : 0
+sell_exit = (close > tts_vwap_val_diff_tf or caution_level > percent_diff_caution_level - 1) ? 1 : 0
+bars_since_sell_bar = barssince(sell and sell[1] != sell)
+bars_since_sell_exit_bar = barssince(sell_exit and sell_exit[1] != sell_exit)
 
-bars_since_sell_bar = barssince(tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis and sell[1] != sell)
-bars_since_sell_exit_bar = barssince(close > tts_vwap_val_diff_tf and sell_exit[1] != sell_exit)
-
-plotchar(show_tts and sell and sell[1] != sell and bars_since_sell_bar[1] > bars_since_sell_exit_bar[1], title="Sell", char='S', color=color.red, transp=0, location=location.belowbar, editable=false)
-plotchar(show_tts and sell_exit and sell_exit[1] != sell_exit and bars_since_sell_bar[1] < bars_since_sell_exit_bar[1], title="Exit", char="E", color=color.lime, transp=0, location=location.belowbar, editable=false)
+sell_signal = down_trend and sell and sell[1] != sell and bars_since_sell_bar[1] > bars_since_sell_exit_bar[1] ? 1 : 0
+plotshape(sell_signal, color=color.red, text='S', textcolor=color.white,style=shape.labeldown,location=location.belowbar, editable=false)
+sell_exit_signal = down_trend and sell_exit and sell_exit[1] != sell_exit and bars_since_sell_bar[1] < bars_since_sell_exit_bar[1] ? 1 : 0
+plotshape(sell_exit_signal, color=color.green, text='E', textcolor=color.black,style=shape.labelup,location=location.abovebar, editable=false)
 
 //###################Dynamic Moving Averages#####################
 
