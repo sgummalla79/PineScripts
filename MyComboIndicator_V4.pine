@@ -45,23 +45,30 @@ nRes3 = sma(nRes,percent_diff_len)
 
 color2 = color.black
 caution_level = 0
+caution_char = 'N'
 if nRes>percent_diff_level1 and nRes<percent_diff_level2
     caution_level := 1
+    caution_char := 'C'
     color2 := color.navy
 else if nRes>percent_diff_level2 and nRes<percent_diff_level3
     caution_level := 2
+    caution_char := 'C'
     color2 := color.blue
 else if nRes>percent_diff_level3 and nRes<percent_diff_level4
     caution_level := 3
+    caution_char := 'C'
     color2 := color.orange
 else if nRes>percent_diff_level4 and nRes<percent_diff_level5
     caution_level := 4
+    caution_char := 'C'
     color2 := color.maroon
 else if nRes>percent_diff_level5
     caution_level := 5
+    caution_char := 'E'
     color2 := color.red
 
-plotshape(caution_level > percent_diff_caution_level - 1, title="Caution Level",  style=shape.circle, location=location.abovebar, color=color2, transp=0,editable=false)
+//plotshape(caution_level > percent_diff_caution_level - 1, title="Caution Level",  style=shape.circle, location=location.abovebar, color=color2, transp=0,editable=false)
+plotshape(caution_level > percent_diff_caution_level - 1, color=color2, text='E', textcolor=color.black,style=shape.labeldown,location=location.abovebar)
 
 //################ Bollinger Bands ##################
 
