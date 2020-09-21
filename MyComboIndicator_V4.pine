@@ -18,8 +18,24 @@ matype(_src, _len, _type, _res) =>
     symSrc = _res == "" ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
     _len == 0 ? _src : (_type==1 ? sma(symSrc,_len) : _type==2 ? ema(symSrc,_len) : _type==3 ? wma(2*wma(symSrc, _len/2)-wma(symSrc, _len), round(sqrt(_len))) : _type==4 ? wma(symSrc, _len) : _type==5 ? vwma(symSrc, _len) : na)
 
+//###################EMA Strategy#####################
+
+showEMAStrategy = input(false, title="Show Exponential Moving Averages Strategy")
+
+ema_strategy_8 = matype(forecast_src, 8, 2, "")
+ema_strategy_13 = matype(forecast_src, 13, 2, "")
+ema_strategy_21 = matype(forecast_src, 21, 2, "")
+ema_strategy_55 = matype(forecast_src, 55, 2, "")
+
+buy_cond_ema = cross(ema_strategy_21, ema_strategy_55) and ema_strategy_8 > ema_strategy_13 and ema_strategy_21 > ema_strategy_55
+sell_cond_ema = cross(ema_strategy_21, ema_strategy_55) and ema_strategy_8 < ema_strategy_13 and ema_strategy_21 < ema_strategy_55
+
+plotshape(showEMAStrategy and buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
+plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)    
+
 //########################### Exit Strategy Based on Percentage between vwap and price ########################################
 
+show_percent_diff=input(false, title="Show Percent Difference Indicators")
 percent_diff_len=input(13, title="Percent Difference Length")
 percent_diff_caution_level = input(5, title="Caution Level 1 to 5", type=input.integer, minval=1, maxval=5)
 percent_diff_res= input(title="Percent Difference Resolution", type=input.resolution, defval="1D")
@@ -67,7 +83,7 @@ else if nRes>percent_diff_level5
     caution_char := 'E'
     color2 := color.red
 
-//plotshape(caution_level > percent_diff_caution_level - 1, color=color2, text='E', textcolor=color.black,style=shape.labeldown,location=location.abovebar)
+plotshape(show_percent_diff and caution_level > 0 and caution_level < percent_diff_caution_level, color=color2, style=shape.circle,location=location.abovebar)
 
 //################ Bollinger Bands ##################
 
@@ -123,9 +139,9 @@ tts_up = rma(max(change(src), 0), tts_rsi_len)
 tts_down = rma(-min(change(src), 0), tts_rsi_len)
 tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
 
-plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display=display.none)
 plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
-plot(show_tts ? tts_vwap_val_diff_tf : na, color= color.yellow, style=plot.style_line, title="Trend Trade System VWAP Week Line")
+plot(show_tts ? tts_vwap_val_diff_tf : na, color= color.yellow, style=plot.style_line, title="Trend Trade System VWAP Week Line", display=display.none)
 
 //bar colors
 green_cond = (tts_rsi > 55 and close > tts_ema_val) ? 1 : 0
@@ -144,7 +160,7 @@ barcolor(show_tts and orange_cond ? color.orange : na, editable=false)
 //up trend buy
 //show buy/buy exit signal only when uptrend
 up_trend = show_tts and up_down_trend
-buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis) ? 1 : 0
+buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > ema_strategy_21) ? 1 : 0
 buy_exit = (close < tts_vwap_val_diff_tf or caution_level > percent_diff_caution_level - 1) ? 1 : 0
 bars_since_buy_bar = barssince(tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis and buy[1] != buy)
 bars_since_buy_exit_bar = barssince(buy_exit and buy_exit[1] != buy_exit)
@@ -158,7 +174,7 @@ plotshape(buy_exit_signal, color=color.red, text='E', textcolor=color.white,styl
 //down trend sell
 //show sell/sell exit signal only when downtrend
 down_trend = show_tts and not up_down_trend
-sell = (tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis) ? 1 : 0
+sell = (tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < ema_strategy_21) ? 1 : 0
 sell_exit = (close > tts_vwap_val_diff_tf or caution_level > percent_diff_caution_level - 1) ? 1 : 0
 bars_since_sell_bar = barssince(sell and sell[1] != sell)
 bars_since_sell_exit_bar = barssince(sell_exit and sell_exit[1] != sell_exit)
@@ -210,21 +226,6 @@ plot(ema_1, color=ema_1_col, linewidth=1, offset=-1 * bar, title="1. Exp. Moving
 plot(ema_2, color=ema_2_col, linewidth=1, offset=-1 * bar, title="2. Exp. Moving Average", display= display.none)
 plot(ema_3, color=ema_3_col, linewidth=1, offset=-1 * bar, title="3. Exp. Moving Average", display= display.none)
 plot(ema_4, color=ema_4_col, linewidth=1, offset=-1 * bar, title="4. Exp. Moving Average")
-
-//###################EMA Strategy#####################
-
-showEMAStrategy = input(false, title="Show Exponential Moving Averages Strategy")
-
-ema_strategy_1 = matype(forecast_src, 8, 2, "")
-ema_strategy_2 = matype(forecast_src, 13, 2, "")
-ema_strategy_3 = matype(forecast_src, 21, 2, "")
-ema_strategy_4 = matype(forecast_src, 55, 2, "")
-
-buy_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 > ema_strategy_2 and ema_strategy_3 > ema_strategy_4
-sell_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 < ema_strategy_2 and ema_strategy_3 < ema_strategy_4
-
-plotshape(showEMAStrategy and buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
-plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)
 
 //###################Simple Moving Average#####################
 
