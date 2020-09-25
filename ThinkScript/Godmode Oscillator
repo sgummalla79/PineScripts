@@ -1,0 +1,117 @@
+# Gmode
+
+def lengthRSI = 14;
+def price = close;
+
+def averageType = AverageType.WILDERS;
+def NetChgAvg = MovingAverage(averageType, price - price[1], lengthRSI);
+def TotChgAvg = MovingAverage(averageType, AbsValue(price - price[1]), lengthRSI);
+def ChgRatio = if TotChgAvg != 0 then NetChgAvg / TotChgAvg else 0;
+
+plot RSI = 50 * (ChgRatio + 1);
+RSI.SetDefaultColor(CreateColor(0, 102, 204));
+RSI.SetLineWeight(3);
+#RSI.HideTitle();
+RSI.HideBubble();
+RSI.Hide();
+
+def n1 = 9; #Channel Length
+def n2 = 26; #Average Length
+def n3 = 13; #Short length
+def multi = no; #Multi-exchange?
+
+def src0 = hlc3;
+
+def src1 = hlc3(period = AggregationPeriod.MONTH);
+def src2 = hlc3(period = AggregationPeriod.MONTH);
+def src3 = hlc3(period = AggregationPeriod.MONTH);
+def src4 = hlc3(period = AggregationPeriod.MONTH);
+
+script tci {
+    input src = hlc3;
+    input n1 = 9; #Channel Length
+    input n2 = 26; #Average Length
+    plot tci = MovAvgExponential((src - MovAvgExponential(src, n1)) / (0.025 * MovAvgExponential(AbsValue(src - MovAvgExponential(src, n1)), n1)), n2) + 50;
+    tci.Hide();
+}
+
+#mf(src) => rsi(sum(volume * (change(src) <= 0 ? 0 : src), n3), sum(volume * (change(src) >= 0 ? 0 : src), n3))
+
+script mf {
+    input src = hlc3;
+    input n3 = 13; #Short length
+    def rsi = reference RSI();
+    #plot mf = rsi(Sum(volume * (if Average(src) <= 0 then 0 else src), n3), Sum(volume * (if Average(src) >= 0 then 0 else src), n3));
+    plot mf = RSI(n3, src);
+    mf.Hide();
+}
+
+script willy {
+    input src = hlc3;
+    input n2 = 26; #Average Length
+    plot willy = 60 * (src - Highest(src, n2)) / (Highest(src, n2) - Lowest(src, n2)) + 80;
+    willy.Hide();
+}
+
+#csi(src) => avg(rsi(src, n3),tsi(src0,n1,n2)*50+50)
+
+script csi {
+    input src = hlc3;
+    input n1 = 9; #Channel Length
+    input n2 = 26; #Average Length
+    input n3 = 13; #Short length
+
+    def rsi = reference RSI();
+
+    plot csi = RSI(n3, src) + TrueStrengthIndex(n1, n2) / 2 * 50 + 50;
+    csi.Hide();
+}
+
+script godmode {
+    input src = hlc3;
+    def rsi = reference RSI();
+    plot godmode = (tci(src) + CSI(src) + mf(src) + willy(src)) / 4;
+    godmode.Hide();
+}
+
+script tradition {
+    input src = hlc3;
+    input n3 = 13; #Short length
+    def rsi = reference RSI();
+    plot tradition = (tci(src) + mf(src) + RSI(n3, src)) / 3;
+    tradition.Hide();
+}
+
+
+def wt1 = if multi then (godmode(src0) + godmode(src1) + godmode(src2) + godmode(src3) + godmode(src4) / 5) else tradition(src0);
+def wt2 = SimpleMovingAvg(wt1, 6);
+def extended1 = if wt2 < 25 then wt2 + 5 else if wt2 > 75 then wt2 - 5 else Double.NaN;
+def extended2 = if wt2 < 20 then wt2 + 5 else if wt2 > 80 then wt2 - 5 else Double.NaN;
+def extended3 = if wt2 < 15 then wt2 + 5 else if wt2 > 85 then wt2 - 5 else Double.NaN;
+def mid_line = 50;
+
+plot middle_line = mid_line;
+middle_line.SetDefaultColor(color.WHITE);
+
+plot wta = wt1;
+wta.SetDefaultColor(Color.GREEN);
+wta.SetLineWeight(1);
+
+plot wtb = wt2;
+wtb.SetDefaultColor(Color.RED);
+wtb.SetLineWeight(1);
+
+plot ext3 = extended3;
+ext3.SetPaintingStrategy(PaintingStrategy.POINTS);
+ext3.SetDefaultColor(Color.RED);
+ext3.SetLineWeight(2);
+
+plot ext2 = extended2;
+ext2.SetPaintingStrategy(PaintingStrategy.POINTS);
+ext2.SetDefaultColor(Color.YELLOW);
+ext2.SetLineWeight(2);
+
+plot ext1 = extended1;
+ext1.SetPaintingStrategy(PaintingStrategy.POINTS);
+ext1.SetDefaultColor(Color.BLUE);
+ext1.SetLineWeight(2);

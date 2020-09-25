@@ -1,0 +1,11 @@
+input BollingerDeviations = 2.0; 
+input BollingerLength = 20.0; 
+input KeltnerFactor = 1.5; 
+input KeltnerLength = 20; 
+input price = close; 
+def bk = reference BollingerBands("num_dev_up" = BollingerDeviations, "length" = BollingerLength )."upperband" - reference KeltnerChannels("factor" = KeltnerFactor, "length" = KeltnerLength)."Upper_Band"; 
+def grnconsecdots = if bk[0] > 0 and bk[1] > 0 and bk[2] > 0 and bk[3] > 0 and bk[4] > 0 and bk[5] > 0 and bk[6] > 0 then 7 else if bk[0] > 0 and bk[1] > 0 and bk[2] > 0 and bk[3] > 0 and bk[4] > 0 and bk[5] > 0 then 6 else if bk[0] > 0 and bk[1] > 0 and bk[2] > 0 and bk[3] > 0 and bk[4] > 0 then 5 else if bk[0] > 0 and bk[1] > 0 and bk[2] > 0 and bk[3] > 0 then 4 else if bk[0] > 0 
+and bk[1] > 0 and bk[2] > 0 then 3 else if bk[0] > 0 and bk[1] > 0 then 2 else if bk[0] > 0 then 1 else 0; 
+def redconsecdots = if bk[0] < 0 and bk[1] < 0 and bk[2] < 0 then 3 else if bk[0] < 0 and bk[1] < 0 then 2 else if bk[0] < 0 then 1 else 0; 
+plot signal = if grnconsecdots > 0 then grnconsecdots else redconsecdots + 10; signal.AssignValueColor (Color.BLACK); 
+AssignBackgroundColor(if bk[0] < 0 then Color.RED else if grnconsecdots < 7 then Color.GREEN else Color.BLACK);

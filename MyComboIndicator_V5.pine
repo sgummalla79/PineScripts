@@ -18,240 +18,21 @@ matype(_src, _len, _type, _res) =>
     symSrc = _res == "" ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
     _len == 0 ? _src : (_type==1 ? sma(symSrc,_len) : _type==2 ? ema(symSrc,_len) : _type==3 ? wma(2*wma(symSrc, _len/2)-wma(symSrc, _len), round(sqrt(_len))) : _type==4 ? wma(symSrc, _len) : _type==5 ? vwma(symSrc, _len) : na)
 
-//########################### ChandelierStop ########################################
+//###################Simple Moving Average#####################
 
-//input variables
-//showChandelierStop = input(false, title="Show Chandelier Stop")
-//cs_length=input(title="Look Back Period", type=input.integer, defval=8)
-//cs_atr_period=input(title="ATR Period", type=input.integer, defval=22)
-//cs_multiplier=input(title="ATR Multiplier", type=input.integer, defval=4)
-//cc_res = input(title="Chandelier Stop Resolution", type=input.resolution, defval="240")
+showMA = input(false, title="Show Moving Averages")
 
-//sec_high = security(syminfo.tickerid, cc_res, high)
-//sec_low = security(syminfo.tickerid, cc_res, low)
-//sec_close = security(syminfo.tickerid, cc_res, low)
-//pine_atr(length) =>
-//    trueRange = na(sec_high[1])? sec_high-sec_low : max(max(sec_high - sec_low, abs(sec_high - sec_close[1])), abs(sec_low - sec_close[1]))
-//    //true range can be also calculated with tr(true)
-//    rma(trueRange, length)
-    
-//calculate stop value
-//short_stop = lowest(sec_low, cs_length) + cs_multiplier * pine_atr(cs_atr_period)
-//long_stop  = highest(sec_high, cs_length) - cs_multiplier * pine_atr(cs_atr_period)
-//shortvs = 0.0
-//longvs = 0.0
+sma_1_len = input(100, title="1. Simple Moving Average", type=input.integer)
+sma_2_len = input(200, title="2. Simple Moving Average", type=input.integer)
 
-//shortvs:=na(shortvs[1]) ? short_stop : iff(sec_close>shortvs[1], short_stop , min(short_stop,shortvs[1]))
-//longvs:=na(longvs[1]) ? long_stop : iff(sec_close<longvs[1], long_stop, max(long_stop,longvs[1]))
+sma_1_col = color.purple
+sma_2_col = color.green
 
-//longswitch=iff (sec_close>=shortvs[1] and sec_close[1]<shortvs[1] , 1 ,  0)
-//shortswitch=iff (sec_close<=longvs[1] and sec_close[1]>longvs[1] ,  1 ,  0)
+sma_1 = showMA ? matype(forecast_src, sma_1_len, 1, "") : na
+sma_2 = showMA ? matype(forecast_src, sma_2_len, 1, "") : na
 
-//direction = 0.0
-//direction := iff(na(direction[1]), 0, iff (direction[1]<=0 and longswitch, 1, iff (direction[1]>=0 and shortswitch, -1, direction[1])))
-//pc = showChandelierStop ? (direction > 0 ? longvs : shortvs) : na
-//plot(pc, color=(direction>0?color.green:color.red), style=plot.style_line, linewidth=1)
-
-//########################### Exit Strategy Based on Percentage between vwap and price ########################################
-
-percent_diff_len=input(13, title="Percent Difference Length")
-percent_diff_caution_level = input(5, title="Caution Level 1 to 5", type=input.integer, minval=1, maxval=5)
-percent_diff_res= input(title="Percent Difference Resolution", type=input.resolution, defval="1D")
-percent_diff_start = security(syminfo.tickerid, percent_diff_res, time)
-percent_diff_level1=input(1.28)
-percent_diff_level2=input(2.1)
-percent_diff_level3=input(2.5)
-percent_diff_level4=input(3.09)
-percent_diff_level5=input(4.1)
-
-newSession = iff(change(percent_diff_start), 1, 0)
-vwapsum = float(na)
-vwapsum := iff(newSession, hl2*volume, vwapsum[1]+hl2*volume)
-volumesum = float(na)
-volumesum := iff(newSession, volume, volumesum[1]+volume)
-v2sum = float(na)
-v2sum := iff(newSession, volume*hl2*hl2, v2sum[1]+volume*hl2*hl2)
-myvwap = vwapsum/volumesum
-
-xSMA = myvwap
-nRes = abs(forecast_src - xSMA) * 100 / forecast_src
-nRes3 = sma(nRes,percent_diff_len)
-
-color2 = color.black
-caution_level = 0
-if nRes>percent_diff_level1 and nRes<percent_diff_level2
-    caution_level := 1
-    color2 := color.navy
-else if nRes>percent_diff_level2 and nRes<percent_diff_level3
-    caution_level := 2
-    color2 := color.blue
-else if nRes>percent_diff_level3 and nRes<percent_diff_level4
-    caution_level := 3
-    color2 := color.orange
-else if nRes>percent_diff_level4 and nRes<percent_diff_level5
-    caution_level := 4
-    color2 := color.maroon
-else if nRes>percent_diff_level5
-    caution_level := 5
-    color2 := color.red
-
-plotshape(caution_level > percent_diff_caution_level, title="Caution Level",  style=shape.circle, location=location.abovebar, color=color2, transp=0,editable=false)
-
-//################ Bollinger Bands ##################
-
-showBB = input(false, title="Show Bollinger Bands")
-bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
-bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
-
-bb_stdev = stdev(forecast_src, bb_length)
-bb_basis = matype(forecast_src, bb_length, 1, "")
-bb_upper = bb_basis + bb_stdDev_factor * bb_stdev
-bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
-
-p1 = plot(showBB ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
-plot(showBB ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
-p2 = plot(showBB ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
-fill(p1, p2, color=color.green, title="Background", transp=90)    
-    
-//###############################Support/Resistance Envelope##################
-// Description:
-// - High and Low Envelope channel with median line and 'sigma' offsets to try and encapsulate
-//   price flow and quickly locate likely areas of support and resistance within smaller trend.
-
-showSRChannel = input(false, title="Show Support Resistance Channel")
-
-srlength  = input(defval = 25, title = "Envelope Length", minval = 1, maxval = 1000)
-sigma   = input(defval = 1.0, title = "Sigma Multiply", minval = 0.01, step = 0.1)
-
-upperEnvelope   = highest(high, srlength)
-lowerEnvelope   = lowest(low, srlength)
-envelopeSigma   = ((upperEnvelope - lowerEnvelope) / 8) * sigma
-envelopeMedian  = (upperEnvelope + lowerEnvelope) / 2
-upperSigma    =  envelopeMedian + envelopeSigma
-lowerSigma    = envelopeMedian - envelopeSigma
-
-
-plot(showSRChannel ? upperEnvelope : na, title = "Upper Envelope", color = #66FFFF, linewidth = 1, display=display.none)
-plot(showSRChannel ? upperSigma : na, title = "Upper Sigma", color = #66FFFF, linewidth = 1, style = plot.style_line)
-plot(showSRChannel ? envelopeMedian : na, title = "Median", color = color.silver, linewidth = 1, style = plot.style_circles)
-plot(showSRChannel ? lowerSigma : na, title = "Lower Sigma", color = #FF1133, linewidth = 1, style = plot.style_line)
-plot(showSRChannel ? lowerEnvelope : na, title = "Lower Envelope", color = #FF1133, linewidth = 1, display=display.none)
-
-//################### Trend Trade System #####################
-
-show_tts = input(true, title="Show Trend Trade System") 
-tts_ema_length = input(26, title="Trend Trade System EMA Length") 
-tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
-tts_vwap_res = input(title="Trend Trade System Exit VWAP Resolution", type=input.resolution, defval="1W")
-tts_vwap_diff_tf_length = input(13, title="Trend Trade System VWAP High TF Length") 
-tts_rsi_len = input(14, minval=1, title="RSI Length")
-
-tts_ema_val = matype(low, tts_ema_length, 2, "")
-tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
-tts_vwap_val_diff_tf = matype(vwap, tts_vwap_diff_tf_length, 2, tts_vwap_res)
-tts_up = rma(max(change(src), 0), tts_rsi_len)
-tts_down = rma(-min(change(src), 0), tts_rsi_len)
-tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
-
-plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
-plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
-plot(show_tts ? tts_vwap_val_diff_tf : na, color= color.yellow, style=plot.style_line, title="Trend Trade System VWAP Week Line")
-
-//buy setup
-//up trend buy
-green_cond = (tts_rsi > 55 and close > tts_ema_val) ? 1 : 0
-barcolor(show_tts and green_cond ? color.lime : na, editable=false) 
-
-teal_cond = (tts_rsi > 50 and close > tts_ema_val) ? 1 : 0
-barcolor(show_tts and teal_cond ? color.teal : na, editable=false)
-
-buy = (tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis) ? 1 : 0
-buy_exit = (close < tts_vwap_val_diff_tf) ? 1 : 0
-
-bars_since_buy_bar = barssince(tts_rsi > 50 and close > tts_ema_val and close > upperSigma and close > bb_basis and buy[1] != buy)
-bars_since_buy_exit_bar = barssince(close < tts_vwap_val_diff_tf and buy_exit[1] != buy_exit)
-
-plotchar(show_tts and buy and buy[1] != buy and bars_since_buy_bar[1] > bars_since_buy_exit_bar[1], title="Buy", char='B', color=color.lime, transp=0, location=location.abovebar, editable=false)
-plotchar(show_tts and buy_exit and buy_exit[1] != buy_exit and bars_since_buy_bar[1] < bars_since_buy_exit_bar[1], title="Exit", char="E", color=color.red, transp=0, location=location.abovebar, editable=false)
-
-//sell setup
-//down trend sell
-red_cond = (tts_rsi < 45 and close < tts_ema_val) ? 1 : 0
-barcolor(show_tts and red_cond ? color.red : na, editable=false)
-
-orange_cond = (tts_rsi < 50 and close < tts_ema_val) ? 1 : 0
-barcolor(show_tts and orange_cond ? color.orange : na, editable=false)
-
-sell = (tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis) ? 1 : 0
-sell_exit = (close > tts_vwap_val_diff_tf) ? 1 : 0
-
-bars_since_sell_bar = barssince(tts_rsi < 45 and close < tts_ema_val and close < lowerSigma and close < bb_basis and sell[1] != sell)
-bars_since_sell_exit_bar = barssince(close > tts_vwap_val_diff_tf and sell_exit[1] != sell_exit)
-
-plotchar(show_tts and sell and sell[1] != sell and bars_since_sell_bar[1] > bars_since_sell_exit_bar[1], title="Sell", char='S', color=color.red, transp=0, location=location.belowbar, editable=false)
-plotchar(show_tts and sell_exit and sell_exit[1] != sell_exit and bars_since_sell_bar[1] < bars_since_sell_exit_bar[1], title="Exit", char="E", color=color.lime, transp=0, location=location.belowbar, editable=false)
-
-//var label myLabel = label.new(x=bar_index, y=high + tr, textcolor=color.white, color=color.blue)
-//if (barstate.islast)
-//    // Set the label content
-//    label.set_text(id=myLabel, text="Last Exit at : " + tostring(exit_bar_cond))
-//
-//    // Update the label's location
-//    label.set_x(id=myLabel, x=bar_index)
-//    label.set_y(id=myLabel, y=high + tr)
-
-//var label myLabel2 = label.new(x=bar_index, y=high + tr, textcolor=color.white, color=color.blue)
-//if (barstate.islast)
-//    // Set the label content
-//    label.set_text(id=myLabel2, text="Last Buy at : " + tostring(buy_bar_cond))
-
-//    // Update the label's location
-//    label.set_x(id=myLabel2, x=bar_index)
-//    label.set_y(id=myLabel2, y=high + tr + 10)
-
-// //buy pull backs
-// buy_pullback = (tts_rsi > 50 and close < tts_vwap_val) ? 1 : na
-// plotshape(show_tts and buy_pullback, title="Buy Pullback",  style=shape.triangleup, location=location.belowbar, color=color.lime, transp=0,editable=false)
-    
-// buy_setup_take_profits = (tts_rsi > 75 and close > tts_ema_val) ? 1 : na
-// plotchar(show_tts and buy_setup_take_profits, title="Buy Setup Take Profits", location=location.abovebar, char='T', color=color.lime, transp=0, editable=false)
-
-// //sell pull backs
-// sell_pullback = (tts_rsi < 50 and close > tts_vwap_val) ? 1 : na
-// plotshape(show_tts and sell_pullback, title="Sell Pullback", style=shape.triangledown, location=location.abovebar, color=color.red, transp=0,editable=false)
-
-// sell = (tts_rsi < 50 and close > tts_vwap_val and close < upperSigma) ? 1 : na
-// plotchar(show_tts and sell, title="Sell", char="S", color=color.red, transp=0, location=location.belowbar,editable=false)
-
-// sell_setup_take_profits = tts_rsi < 25 and close < tts_ema_val ? 1 : na
-// plotchar(show_tts and sell_setup_take_profits, title="Sell Setup Take Profits", location=location.belowbar, char='T', color=color.red, transp=0, editable=false)
-
-// //Exit Completely: In an uptrend, close your entire position on bars colored blue or red. (Again, closed bars)
-// //Exit Completely: In a downtrend, close your entire position on bars colored orange or green.
-// blue_teal_cond = (tts_rsi < 50 and close > tts_ema_val and close < lowerSigma) ? 1 : 0
-// barcolor(show_tts and blue_teal_cond ? color.blue : color.teal, editable=false)
-
-// blue_orange_cond = (tts_rsi > 50 and close < tts_ema_val and close > upperSigma) ? 1 : 0
-// barcolor(show_tts and blue_orange_cond ? color.blue : color.orange, editable=false)
-
-//###################Dynamic Moving Averages#####################
-
-showDMA = input(false, title="Show Dynamic Moving Averages")
-
-dma_1_type = input(5, title="1. SMA 2. EMA 3. HMA 4.WMA 5.VWMA", type=input.integer, minval=1, maxval=5)
-dma_1_tf = input(title="1. Dynamic MA Resolution", type=input.resolution, defval="180")
-dma_1_len = input(3, title="1. Dynamic. Moving Average", type=input.integer)
-dma_1_col = color.red
-dma_1 = matype(forecast_src, dma_1_len, dma_1_type, "")
-
-dma_2_type = input(5, title="1. SMA 2. EMA 3. HMA 4.WMA 5.VWMA", type=input.integer, minval=1, maxval=5)
-dma_2_tf = input(title="1. Dynamic MA Resolution", type=input.resolution, defval="180")
-dma_2_len = input(8, title="2. Dynamic. Moving Average", type=input.integer)
-dma_2_col = color.green
-dma_2 = matype(forecast_src, dma_2_len, dma_2_type,"")
-
-plot(showDMA ? dma_1 : na, color=dma_1_col, linewidth=1, offset=-1 * bar, title="1. Dynamic Moving Average", display= display.none)
-plot(showDMA ? dma_2 : na, color=dma_2_col, linewidth=1, offset=-1 * bar, title="2. Dynamic Moving Average")
+plot(sma_1, color=sma_1_col, linewidth=1, title="1. Simple Moving Average")
+plot(sma_2, color=sma_2_col, linewidth=1, title="2. Simple Moving Average")    
 
 //###################Exponential Moving Average#####################
 
@@ -272,41 +53,90 @@ ema_2 = showEMA ? matype(forecast_src, ema_2_len, 2, "") : na
 ema_3 = showEMA ? matype(forecast_src, ema_3_len, 2, "") : na
 ema_4 = showEMA ? matype(forecast_src, ema_4_len, 2, "") : na
 
-plot(ema_1, color=ema_1_col, linewidth=1, offset=-1 * bar, title="1. Exp. Moving Average", display= display.none)
-plot(ema_2, color=ema_2_col, linewidth=1, offset=-1 * bar, title="2. Exp. Moving Average", display= display.none)
-plot(ema_3, color=ema_3_col, linewidth=1, offset=-1 * bar, title="3. Exp. Moving Average", display= display.none)
-plot(ema_4, color=ema_4_col, linewidth=1, offset=-1 * bar, title="4. Exp. Moving Average")
+plot(ema_1, color=ema_1_col, linewidth=1, title="1. Exp. Moving Average")
+plot(ema_2, color=ema_2_col, linewidth=1, title="2. Exp. Moving Average")
+plot(ema_3, color=ema_3_col, linewidth=1, title="3. Exp. Moving Average")
+plot(ema_4, color=ema_4_col, linewidth=1, title="4. Exp. Moving Average")
 
 //###################EMA Strategy#####################
 
 showEMAStrategy = input(false, title="Show Exponential Moving Averages Strategy")
 
-ema_strategy_1 = matype(forecast_src, 8, 2, "")
-ema_strategy_2 = matype(forecast_src, 13, 2, "")
-ema_strategy_3 = matype(forecast_src, 21, 2, "")
-ema_strategy_4 = matype(forecast_src, 55, 2, "")
+ema_strategy_8 = matype(forecast_src, 8, 2, "")
+ema_strategy_13 = matype(forecast_src, 13, 2, "")
+ema_strategy_21 = matype(forecast_src, 21, 2, "")
+ema_strategy_55 = matype(forecast_src, 55, 2, "")
 
-buy_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 > ema_strategy_2 and ema_strategy_3 > ema_strategy_4
-sell_cond_ema = cross(ema_strategy_3, ema_strategy_4) and ema_strategy_1 < ema_strategy_2 and ema_strategy_3 < ema_strategy_4
+buy_cond_ema = cross(ema_strategy_21, ema_strategy_55) and ema_strategy_8 > ema_strategy_13 and ema_strategy_21 > ema_strategy_55
+sell_cond_ema = cross(ema_strategy_21, ema_strategy_55) and ema_strategy_8 < ema_strategy_13 and ema_strategy_21 < ema_strategy_55
 
 plotshape(showEMAStrategy and buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
-plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)
+plotshape(showEMAStrategy and sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)    
 
-//###################Simple Moving Average#####################
+//################ Bollinger Bands ##################
 
-showMA = input(false, title="Show Moving Averages")
+showBB = input(false, title="Show Bollinger Bands")
+bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
+bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
 
-ma_1_len = input(100, title="4. Moving Average", type=input.integer)
-ma_2_len = input(200, title="5. Moving Average", type=input.integer)
+bb_stdev = stdev(forecast_src, bb_length)
+bb_basis = matype(forecast_src, bb_length, 1, "")
+bb_upper = bb_basis + bb_stdDev_factor * bb_stdev
+bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
 
-ma_1_col = color.purple
-ma_2_col = color.green
+p1 = plot(showBB ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
+plot(showBB ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+p2 = plot(showBB ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
+fill(p1, p2, color=color.green, title="Background", transp=90)    
 
-ma_1 = showMA ? matype(forecast_src, ma_1_len, 1, "") : na
-ma_2 = showMA ? matype(forecast_src, ma_2_len, 1, "") : na
+//################### Trend Trade System #####################
 
-plot(ma_1, color=ma_1_col, linewidth=1, offset=-1 * bar, title="1. Simple Moving Average")
-plot(ma_2, color=ma_2_col, linewidth=1, offset=-1 * bar, title="2. Simple Moving Average")
+show_tts = input(true, title="Show Trend Trade System") 
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_ema_val = matype(low, tts_ema_length, 2, "")
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
+tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
+tts_up = rma(max(change(src), 0), tts_rsi_len)
+tts_down = rma(-min(change(src), 0), tts_rsi_len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+tts_enable_bar_colors = input(true, title="Enable bar colors") 
+
+plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+
+cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond1 ? color.green : na) 
+
+cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond2 ? color.red : na) 
+
+cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond3 ? color.orange : na)
+
+cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond4 ? color.teal : na)
+
+cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond5 ? color.white : na)
+
+cond7 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
+plotchar(show_tts and cond7, char='B',color=color.lime, transp=0, location=location.abovebar, editable=false)
+
+cond8 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
+plotchar(show_tts and cond8, char='S', color=color.red, transp=0, location=location.abovebar, editable=false)
+
+cond9 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
+plotshape(show_tts and cond9, style=shape.triangleup, color=color.lime, transp=0, location=location.belowbar, editable=false)
+
+cond10 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
+plotshape(show_tts and cond10, style=shape.triangledown, color=color.red, transp=0, location=location.belowbar, editable=false)
+
+cond11 = tts_rsi > 75 and close > tts_ema_val ? 1 : 0
+plotchar(show_tts and cond11, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
+
+cond12 = tts_rsi < 25 and close < tts_ema_val ? 1 : 0
+plotchar(show_tts and cond12, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
 
 //########################### TD Sequential ########################################
 showTDSequential = input(false, "Show TD Sequential")
@@ -467,85 +297,3 @@ else
             tdRisk
 
 plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
-
-//########################### LUCID SAR ########################################
-
-showLucidSAR = input(false, title="Show Lucid SAR")
-AF_initial = input(0.02)
-AF_increment = input(0.02)
-AF_maximum = input(0.2)
-
-LUCID_SAR(initial, increment, maximum) =>
-
-    // start with uptrend
-    uptrend = true
-    new_trend = false
-    EP = high
-    SAR = low
-    AF = AF_initial
-
-    // before a reversal, the reversal_state is 0;
-    // after a reversal, within the same candle as the reversal,
-    // the reversal_state can be 1 (uptrend) or 2 (downtrend)
-    reversal_state = 0
-
-    if not na(uptrend[1]) and not na(new_trend[1])
-        if reversal_state == 0
-            if uptrend[1]
-                EP := max(high, EP[1])
-            else
-                EP := min(low, EP[1])
-            if new_trend[1]
-                AF := AF_initial
-            else
-                if EP != EP[1]
-                    AF := min(AF_maximum, AF[1] + AF_increment)
-                else
-                    AF := AF[1]
-            SAR := SAR[1] + AF * (EP - SAR[1])
-            if uptrend[1]
-                SAR := min(SAR, low[1])
-                if not na(low[2])
-                    SAR := min(SAR, low[2])
-                if SAR > low
-                    uptrend := false
-                    new_trend := true
-                    SAR := max(high, EP[1])
-                    EP := min(low, low[1])
-                    reversal_state := 2
-                else
-                    uptrend := true
-                    new_trend := false
-            else
-                SAR := max(SAR, high[1])
-                if not na(high[2])
-                    SAR := max(SAR, high[2])
-                if SAR < high
-                    uptrend := true
-                    new_trend := true
-                    SAR := min(low, EP[1])
-                    EP := max(high, high[1])
-                    reversal_state := 1
-                else
-                    uptrend := false
-                    new_trend := false
-        else
-            if reversal_state == 1
-                EP := high
-                if low < SAR
-                    SAR := EP
-                    EP := low
-                    reversal_state == 2
-                    uptrend := false
-            else
-                EP := low
-                if high > SAR
-                    SAR := EP
-                    EP := high
-                    reversal_state == 1
-                    uptrend := true
-    SAR
-
-L_SAR = showLucidSAR ? LUCID_SAR(AF_initial, AF_increment, AF_maximum) : na
-
-plot(L_SAR, color = color.blue, style = plot.style_cross, linewidth = 2, title="Lucid SAR", editable=false)

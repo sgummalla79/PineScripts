@@ -1,0 +1,207 @@
+#Try Using (H+L)/2, 13,3,10, SIMPLE
+## START STUDY
+## SuperCombo Bull/Bear Indicator
+## linus, 2014-07-24, v0.1
+
+#hint: SuperTrend of price, RSI and Ultimate Oscillator, combined with Chandelier stops.
+
+## Signal inputs:
+input paintBars = {OFF, default DIR, STR};
+input signals = {OFF, default ALL, ST, CS, RSI, UO};
+input strength = {"1", "2", default "3", "4"};
+input showLabel = Yes;
+input showBubbles = Yes;
+input showPrompt = Yes;
+
+## SuperTrend of Price inputs:
+input stATRMult = 3.5;
+input stATRLength = 22;
+input stATRType = AverageType.WILDERS;
+input stPivot = hl2;
+
+## Chandelier Stop inputs:
+input csPeriod = 15;
+input csATRLength = 5;
+input csATRMult = 3.0;   
+input csATRType = AverageType.SIMPLE;
+input csShift = 1; 
+input csHideOpposite = Yes; 
+
+## SuperTrend of RSI inputs:
+input rsiLength = 14;
+input rsiPrice = close;
+input rsiSmooth = 2;
+input rsiSmoothType = AverageType.SIMPLE;
+input rsiATRMult = 2.3;
+input rsiATRLength = 25;
+input rsiATRType = AverageType.WILDERS;
+
+## SuperTrend of Ultimate Oscillator inputs:
+input uoFastLen = 7;
+input uoMedLen = 14;
+input uoSlowLen = 28;
+input uoATRMult = 2.8;
+input uoATRLength = 3;
+input uoATRType = AverageType.SIMPLE;
+
+########################################
+## SuperTrend of Price
+
+def stATR = MovingAverage(stATRType, TrueRange(high, close, low), stATRLength) * stATRMult;
+
+def stUp = stPivot + stATR;
+def stDn = stPivot - stATR;
+
+def rStTrend = compoundValue(1,
+    if rStTrend[1] > 0 then
+        if close < Max(stDn[1], rStTrend[1]) then -stUp
+        else Max(stDn, rStTrend[1])
+    else if rStTrend[1] < 0 then
+        if close > Min(stUp[1], AbsValue(rStTrend[1])) then stDn
+        else -Min(stUp, AbsValue(rStTrend[1]))
+    else rStTrend[1]
+, stPivot);
+
+plot StTrend = if Sign(rStTrend) == Sign(rStTrend[1]) then absValue(rStTrend) else Double.NaN;
+StTrend.DefineColor("Up", Color.CYAN);
+StTrend.DefineColor("Dn", Color.MAGENTA);
+StTrend.AssignValueColor(if rStTrend > 0 then StTrend.Color("Up") else StTrend.Color("Dn"));
+StTrend.HideBubble();
+StTrend.SetLineWeight(3);
+
+########################################
+## Chandelier_Stops
+
+def csATR = MovingAverage(csATRType, TrueRange(high, close, low), csATRLength) * csATRMult;
+
+def smax = Lowest(low, csPeriod)[csShift] + csATR[csShift];
+def smin = Highest(high, csPeriod)[csShift] - csATR[csShift];
+
+def rCSTrend = compoundValue(1, if close > smax[1] then 1 else if close < smin[1] then -1 else rCSTrend[1], 0);
+
+def rUB = compoundValue(1, if rCSTrend > 0 then if smax > rUB[1] then smax else rUB[1] else if rCSTrend < 0 then if smax < rUB[1] then smax else rUB[1] else rUB[1], high);
+
+def rLB = compoundValue(1, if rCSTrend < 0 then if smin < rLB[1] then smin else rLB[1] else if rCSTrend > 0 then if smin > rLB[1] then smin else rLB[1] else rLB[1], low);
+
+plot UB = if !csHideOpposite or rCSTrend < 0 then rUB else Double.NaN;
+UB.SetDefaultColor(Color.MAGENTA);
+UB.SetLineWeight(3);
+UB.SetStyle(Curve.SHORT_DASH);
+UB.HideBubble();
+
+plot LB = if !csHideOpposite or rCSTrend > 0 then rLB else Double.NaN;
+LB.SetDefaultColor(Color.CYAN);
+LB.SetLineWeight(3);
+LB.SetStyle(Curve.SHORT_DASH);
+LB.HideBubble();
+
+########################################
+## SuperTrend of RSI
+
+def avgDif = WildersAverage(AbsValue(rsiPrice - rsiPrice[1]), rsiLength);
+def RSI = MovingAverage(rsiSmoothType, 50 * ((if avgDif != 0 then WildersAverage(rsiPrice - rsiPrice[1], rsiLength) / avgDif else 0) + 1), rsiSmooth);
+
+def rsiATR = MovingAverage(rsiATRType, TrueRange(Highest(RSI, ceil(rsiATRMult)), RSI, Lowest(RSI, ceil(rsiATRMult))), rsiATRLength) * rsiATRMult;
+def rsiUp = RSI + rsiATR;
+def rsiDn = RSI - rsiATR;
+
+def rRSITrend = compoundValue(1,
+    if rRSITrend[1] > 0 then
+        if RSI < Max(rsiDn[1], rRSITrend[1]) then -rsiUp
+        else Max(rsiDn, rRSITrend[1])
+    else if rRSITrend[1] < 0 then
+        if RSI > Min(rsiUp[1], AbsValue(rRSITrend[1])) then rsiDn
+        else -Min(rsiUp, AbsValue(rRSITrend[1]))
+    else rRSITrend[1]
+, RSI);
+
+########################################
+## SuperTrend of Ultimate Oscillator
+
+def TR = TrueRange(high, close, low);
+def BP = close - Min(close[1], low);
+def nFast = (uoSlowLen / uoFastLen);
+def nMed = (uoSlowLen / uoMedLen);
+def trFast = sum(TR, uoFastLen);
+def trMed = sum(TR, uoMedLen);
+def trSlow = sum(TR, uoSlowLen);
+
+def UO = 100 * (((if trFast != 0 then (sum(BP, uoFastLen) / trFast) * nFast else 0)
+    +  (if trMed != 0 then (sum(BP, uoMedLen) / trMed) * nMed else 0)
+    + (if trSlow != 0 then (sum(BP, uoSlowLen) / sum(TR, uoSlowLen)) else 0))
+/ (nFast + nMed + 1));
+
+def uoATR = MovingAverage(uoATRType, TrueRange(Highest(UO, ceil(uoATRMult)), UO, Lowest(UO, ceil(uoATRMult))), uoATRLength) * uoATRMult;
+def uoUp = UO + uoATR;
+def uoDn = UO - uoATR;
+
+def rUOTrend = compoundValue(1,
+    if rUOTrend[1] > 0 then
+        if UO < Max(uoDn[1], rUOTrend[1]) then -uoUp
+        else Max(uoDn, rUOTrend[1])
+    else if rUOTrend[1] < 0 then
+        if UO > Min(uoUp[1], AbsValue(rUOTrend[1])) then uoDn
+        else -Min(uoUp, AbsValue(rUOTrend[1]))
+    else rUOTrend[1]
+, UO);
+
+########################################
+## Signals
+
+def orderDir;
+def p;
+def sumUp = (rStTrend > 0) + (rCSTrend > 0) + (rRSITrend > 0) + (rUOTrend > 0);
+def sumDn = (rStTrend < 0) + (rCSTrend < 0) + (rRSITrend < 0) + (rUOTrend < 0);
+
+switch (signals) {
+case OFF:
+    orderDir = 0;
+    p = 0;
+case ALL:
+    orderDir = compoundValue(1, if sumUp >= strength+1 then 1 else if sumDn >= strength+1 then -1 else orderDir[1], 0);
+    p = if showPrompt then 1 else 0;
+case ST:
+    orderDir = rStTrend;
+    p = if showPrompt then 2 else 0;
+case CS:
+    orderDir = rCSTrend;
+    p = if showPrompt then 3 else 0;
+case RSI:
+    orderDir = rRSITrend;
+    p = if showPrompt then 4 else 0;
+case UO:
+    orderDir = rUOTrend;
+    p = if showPrompt then 5 else 0;
+}
+
+def isOrder = orderDir crosses 0;
+
+def orderCount = compoundValue(1, if isNaN(isOrder) then 0 else if isOrder then orderCount[1] + 1 else orderCount[1], 0);
+
+def noBar = isNaN(open[-1]);
+
+def orderPrice = if isOrder then if noBar then close else open[-1] else orderPrice[1];
+def profitLoss = if !isOrder or orderCount == 1 then 0 else if orderDir > 0 then orderPrice[1] - orderPrice else if orderDir < 0 then orderPrice - orderPrice[1] else 0;
+def profitLossSum = compoundValue(1, if isNaN(isOrder) then 0 else if isOrder then profitLossSum[1] + profitLoss else profitLossSum[1], 0);
+
+AddLabel(signals and showLabel, (if p==1 then "ALL: " else if p==2 then "ST: " else if p==3 then "CS: " else if p==4 then "RSI: " else if p==5 then "UO: " else "") + orderCount + " orders | P/L " + AsDollars((profitLossSum / tickSize()) * tickValue()), if profitLossSum > 0 then Color.GREEN else if profitLossSum < 0 then Color.RED else Color.GRAY);
+
+AddChartBubble(signals and showBubbles and isOrder and orderDir > 0, low, profitLoss, if noBar then Color.LIGHT_GRAY else Color.GREEN, 0);
+AddChartBubble(signals and showBubbles and isOrder and orderDir < 0, high, profitLoss, if noBar then Color.GRAY else Color.RED, 1);
+
+AssignPriceColor(if !paintBars then Color.CURRENT
+else if paintBars == paintBars.DIR then
+    if orderDir > 0 then
+        if rSTTrend < 0 or rCSTrend < 0 then Color.DARK_ORANGE
+        else Color.UPTICK
+    else if orderDir < 0 then
+        if rSTTrend > 0 or rCSTrend > 0 then Color.YELLOW
+        else Color.DOWNTICK
+    else Color.GRAY
+else if sumUp >= strength+1 then Color.UPTICK
+else if sumDn >= strength+1 then Color.DOWNTICK
+else if sumUp > sumDn then Color.YELLOW
+else if sumDn > sumUp then Color.DARK_ORANGE
+else Color.GRAY);
+
+## END STUDY

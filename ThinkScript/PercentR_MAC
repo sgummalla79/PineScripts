@@ -1,0 +1,129 @@
+# filename: MR__EZ_PercentR_MAC_
+# idea source: @HighBredCloud and https://usethinkscript.com/threads/moving-average-crossover-rsi-indicator-for-thinkorswim.185/
+
+# Code: Thanson Stevens, @korygill and netarchitech
+
+# V11.11.2019 - netarchitech added multiple-choice smoothing per HighBredCloud request
+# V11.12.2019 - netarchitech modified several variables per HighBredCloud request
+# V11.12.2019 - netarchitech modified several inputs per HighBredCloud request
+
+
+declare lower;
+
+# PercentR_MAC
+
+input length = 14;
+def over_Bought = 80;
+def over_Sold = 20;
+
+def lowBand = 10; #Smoothing LowerBand
+def data = close;
+def lower = low; #Research Lower = Low?
+
+def highest = Highest(high, length);
+def divisor = highest - Lowest(low, length);
+def PI = 3.14159265359;
+def a1 = Exp(-PI * Sqrt(2) / lower);
+def coeff2 = 2 * a1 * Cos(Sqrt(2) * PI / lower);
+def coeff3 = - Power(a1, 2);
+def coeff1 = 1 - coeff2 - coeff3;
+def filt = coeff1 * (data + (data[1])) / 2 + coeff2 * (filt[1]) + coeff3 * (filt[2]);
+
+input PercentRMALength1 = 3;
+input PercentRMALength2 = 5;
+input PercentRMAType = AverageType.SIMPLE;
+
+# plot and smooth PercentR
+plot "%R" = if divisor equals 0 then 0 else 100 - 100 * (highest - close) / divisor;
+"%R".DefineColor("OverBought", GetColor(9)); #GetColor(9));
+"%R".DefineColor("Normal", GetColor(7));
+"%R".DefineColor("OverSold", GetColor(1)); #GetColor(1));
+"%R".AssignValueColor(if "%R" > over_Bought then "%R".Color("OverBought") else if "%R" < over_Sold then "%R".Color("OverSold") else "%R".Color("Normal"));
+"%R".SetLineWeight(3);
+"%R".Hide();
+
+# plot and smooth the PercentR Moving Averages
+def PercentRMA5 = MovingAverage(PercentRMAType, "%R", PercentRMALength1);
+plot PercentRMovAvg5 = PercentRMA5;
+PercentRMovAvg5.SetDefaultColor(Color.GREEN);
+PercentRMovAvg5.SetLineWeight(3);
+PercentRMovAvg5.hide();
+
+def PercentRMA8 = MovingAverage(PercentRMAType, "%R", PercentRMALength2);
+plot PercentRMovAvg8 = PercentRMA8;
+PercentRMovAvg8.SetDefaultColor(Color.RED);
+PercentRMovAvg8.SetLineWeight(3);
+PercentRMovAvg8.hide();
+
+input applySelectSmoothing = yes;
+
+def smooth_it = EhlersSuperSmootherFilter(if divisor equals 0 then 0 else 100 - 100 * (highest - close) / divisor, lowBand);
+def smooth_MA5 = EhlersSuperSmootherFilter(MovingAverage(PercentRMAType, "%R", PercentRMALength1));
+def smooth_MA8 = EhlersSuperSmootherFilter(MovingAverage(PercentRMAType, "%R", PercentRMALength2));
+
+
+input SelectSmoothingType = {default "PercentR Only", "MAs Only", "PercentR & MAs", "No Smoothing"};
+
+plot X;
+X.AssignValueColor(if "%R" > over_Bought then "%R".Color("OverBought") else if "%R" < over_Sold then "%R".Color("OverSold") else "%R".Color("Normal"));
+X.SetLineWeight(3);
+plot Y;
+Y.SetDefaultColor(Color.GREEN);
+Y.SetLineWeight(2);
+plot Z;
+Z.SetDefaultColor(Color.RED);
+Z.SetLineWeight(2);
+
+switch (SelectSmoothingType) {
+case "PercentR Only":
+X = if applySelectSmoothing and "%R" then smooth_it else "%R";
+Y = if applySelectSmoothing and PercentRMA5 then PercentRMA5 else PercentRMA5;
+Z = if applySelectSmoothing and PercentRMA8 then PercentRMA8 else PercentRMA8;
+case "MAs Only":
+X = if applySelectSmoothing and "%R" then "%R" else "%R";
+Y = if applySelectSmoothing and PercentRMA5 then smooth_MA5 else PercentRMA5;
+Z = if applySelectSmoothing and PercentRMA8 then smooth_MA8 else PercentRMA8;
+case "PercentR & MAs":
+X = if applySelectSmoothing and "%R" then smooth_it else "%R";
+Y = if applySelectSmoothing and PercentRMA5 then smooth_MA5 else PercentRMA5;
+Z = if applySelectSmoothing and PercentRMA8 then smooth_MA8 else PercentRMA8;
+case "No Smoothing":
+X = if applySelectSmoothing and"%R" then "%R" else "%R";
+Y = if applySelectSmoothing and PercentRMA5 then PercentRMA5 else PercentRMA5;
+Z = if applySelectSmoothing and PercentRMA8 then PercentRMA8 else PercentRMA8;
+}
+
+plot OverBought = over_Bought;
+OverBought.SetDefaultColor(Color.DARK_RED);
+OverBought.HideTitle();
+
+plot OverSold = over_Sold;
+OverSold.SetDefaultColor(Color.DARK_GREEN);
+OverSold.HideTitle();
+
+plot fifty_line = 50;
+fifty_line.SetDefaultColor(GetColor(8));
+fifty_line.HideTitle();
+fifty_line.SetStyle(Curve.SHORT_DASH);
+
+
+# plot the Breakout Signals
+input showBreakoutSignals = no;
+
+plot UpSignal = if "%R" crosses above OverSold then OverSold else Double.NaN;
+UpSignal.SetHiding(!showBreakoutSignals);
+UpSignal.SetDefaultColor(Color.UPTICK);
+UpSignal.SetPaintingStrategy(PaintingStrategy.ARROW_UP);
+UpSignal.SetLineWeight(3);
+UpSignal.HideTitle();
+
+plot DownSignal = if "%R" crosses below OverBought then OverBought else Double.NaN;
+DownSignal.SetHiding(!showBreakoutSignals);
+DownSignal.SetDefaultColor(Color.DOWNTICK);
+DownSignal.SetPaintingStrategy(PaintingStrategy.ARROW_DOWN);
+DownSignal.SetLineWeight(3);
+DownSignal.HideTitle();
+
+
+AddCloud(0, over_Sold, Color.DARK_GREEN, Color.DARK_GREEN);
+AddCloud(over_Bought, 100, Color.DARK_RED, Color.DARK_RED);

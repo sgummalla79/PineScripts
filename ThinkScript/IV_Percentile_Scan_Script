@@ -1,0 +1,15 @@
+# calculate the IV percentile
+# ---------------------------
+# how many times over the past year, has IV been below the current IV
+input days_back = 252;
+def vol = impVolatility();
+def df1 = if !IsNaN(vol) then vol else vol[-1];
+
+def counts_below = fold i = 1 to days_back + 1 with count = 0 
+do 
+  if df1[0] > df1[i] then 
+    count + 1
+  else
+    count;
+
+plot perct = Round(counts_below / days_back * 100.0, 0);

@@ -1,0 +1,35 @@
+study(title="MyOscillator", shorttitle="MO")
+n1 = input(9, "Channel Length")
+n2 = input(26, "Average Length")
+n3 = input(13, "Short length")
+inverse = input(false, "Invert Scale")
+source = hlc3 
+
+tci(src) => ema((src - ema(src, n1)) / (0.025 * ema(abs(src - ema(src, n1)), n1)), n2)+50
+mf(src) => rsi(sum(volume * (change(src) <= 0 ? 0 : src), n3), sum(volume * (change(src) >= 0 ? 0 : src), n3))
+willy(src) => 60 * (src - highest(src, n2)) / (highest(src, n2) - lowest(src, n2)) + 80
+tradition(src) => avg(tci(src),mf(src),rsi(src, n3))
+
+wt1 = tradition(source)
+wt2 = sma(wt1,6)
+wt3 = ema((wt1-wt2)*2+50,n3)
+
+wt1 := inverse ? 100-wt1 : wt1 
+wt2 := inverse ? 100-wt2 : wt2
+wt3 := inverse ? 100-wt3 : wt3
+
+extended1 = wt2<25 ? wt2+5 : wt2>75 ? wt2-5 : na
+extended2 = wt2<20 ? wt2+5 : wt2>80 ? wt2-5 : na
+extended3 = wt2<15 ? wt2+5 : wt2>85 ? wt2-5 : na
+
+plot(wt1, color=green, transp=0, linewidth=2)
+plot(wt2, color=red, transp=0, linewidth=2)
+plot(wt3, color=white, style=columns, transp=80, histbase=50)
+
+plot(extended1, title="Caution!", color=aqua, style=circles, linewidth=2)
+plot(extended2, title="Caution!", color=yellow, style=circles, linewidth=2)
+plot(extended3, title="Caution!", color=red, style=circles, linewidth=3)
+
+hline(80)
+hline(50)
+hline(20)
