@@ -1,0 +1,36 @@
+//@version=4
+study("My Impulse MACD", shorttitle="MIMACD", overlay=false)
+lengthMA = input(34, title="Moving Average Length")
+lengthSignal = input(9, title="Signal Length")
+invert = input(false, title="Invert Signal")
+
+calc_smma(src, len) =>
+    smma = float(na)
+	smma := na(smma[1]) ? sma(src, len) : (smma[1] * (len - 1) + src) / len
+	smma
+
+calc_zlema(src, length) =>
+	ema1=ema(src, length)
+	ema2=ema(ema1, length)
+	d=ema1-ema2
+	ema1+d
+
+src=hlc3
+hi=calc_smma(high, lengthMA)
+lo=calc_smma(low, lengthMA)
+mi=calc_zlema(src, lengthMA) 
+
+md  = (mi > hi) ? (mi-hi) : (mi < lo) ? (mi - lo) : 0
+sb  = sma(md, lengthSignal)
+sh  = md-sb
+mdc = src > mi ? src > hi ? (invert ? color.yellow : color.lime) : color.gray : src < lo ? (invert ? color.blue : color.red) : color.gray
+
+my_md = invert ? -md : md
+my_sh = invert ? -sh : sh
+my_sb = invert ? -sb : sb
+
+
+hline(0, color=color.gray, linewidth=1)
+plot(my_md, color=mdc, linewidth=2, title="Impulse MACD", style=plot.style_histogram)
+plot(my_sh, color=color.gray, linewidth=2, title="Impulse Histogram", style=plot.style_histogram, editable=false, display=display.none)
+plot(my_sb, color=color.maroon, linewidth=2, title="Impulse MACD Signal")

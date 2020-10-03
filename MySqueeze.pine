@@ -1,0 +1,120 @@
+//@version=4
+study(title="My Squeeze", shorttitle="MS", overlay=false)
+
+//----------------------------{ Inputs }----------------------------------------
+
+src                 = input(defval=close, title="Squeeze Input", type=input.source)
+int     length      = input(20, title="Length", minval=1)
+string  bbmatype    = input(defval='SMA', title='Bollinger Bands Calculation Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+string  kcmatype    = input(defval='SMA', title='Keltner Channel Calculation Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+bool    invert      = input(defval=false, title='Invert Scale')
+
+//Bollinger Bands Basis Line
+smabb       = sma(src, length)
+emabb       = ema(src, length)
+wmabb       = wma(src, length)
+vwmabb      = vwma(src, length)
+rmabb       = rma(src, length)
+basis       = bbmatype == 'SMA' ? smabb : bbmatype == 'EMA' ? emabb : 
+   bbmatype == 'WMA' ? wmabb : bbmatype == 'VWMA' ? vwmabb : rmabb
+
+//Keltner Channel Basis Line
+smakc       = sma(src, length)
+emakc       = ema(src, length)
+wmakc       = wma(src, length)
+vwmakc      = vwma(src, length)
+rmakc       = rma(src, length)
+basiskc     = bbmatype == 'SMA' ? smakc : kcmatype == 'EMA' ? emakc : 
+   kcmatype == 'WMA' ? wmakc : kcmatype == 'VWMA' ? vwmakc : rmakc
+
+// Keltner Channel Low
+smakcl      = sma(tr, length)
+emakcl      = ema(tr, length)
+wmakcl      = wma(tr, length)
+vwmakcl     = vwma(tr, length)
+rmakcl      = rma(tr, length)
+rangemal    = kcmatype == 'SMA' ? smakcl : kcmatype == 'EMA' ? emakcl : 
+   kcmatype == 'WMA' ? wmakcl : kcmatype == 'VWMA' ? vwmakcl : rmakcl
+// Keltner Channel Mid
+smakcm      = sma(tr, length)
+emakcm      = ema(tr, length)
+wmakcm      = wma(tr, length)
+vwmakcm     = vwma(tr, length)
+rmakcm      = rma(tr, length)
+rangemam    = kcmatype == 'SMA' ? smakcm : kcmatype == 'EMA' ? emakcm : 
+   kcmatype == 'WMA' ? wmakcm : kcmatype == 'VWMA' ? vwmakcm : rmakcm
+//Keltner Channel High
+smakch      = sma(tr, length)
+emakch      = ema(tr, length)
+wmakch      = wma(tr, length)
+vwmakch     = vwma(tr, length)
+rmakch      = rma(tr, length)
+rangemah    = kcmatype == 'SMA' ? smakch : kcmatype == 'EMA' ? emakch : 
+   kcmatype == 'WMA' ? wmakch : kcmatype == 'VWMA' ? vwmakch : rmakch
+
+//{Instead of putting the numbers in the formula, I chose to do it this way so you could set it in actual BB or KC too}
+
+//Bollinger Bands Multiplier
+mult        = 2.0
+//Keltner Channel Low Multiplier
+multlowKC   = 2.0
+//Keltner Channel Mid Multiplier
+multmidKC   = 1.5
+//Keltner Channel High Multiplier
+multhighKC  = 1.0
+
+//Bollinger Bands 
+dev         = mult * stdev(src, length)
+upperBB     = basis + dev
+lowerBB     = basis - dev
+//Keltner Channel Bands Low 
+upperKCl    = basiskc + rangemal * multlowKC
+lowerKCl    = basiskc - rangemal * multlowKC
+//Keltner Channel Bands Mid
+upperKCm    = basiskc + rangemam * multmidKC
+lowerKCm    = basiskc - rangemam * multmidKC
+//Keltner Channel Bands High
+upperKCh    = basiskc + rangemah * multhighKC
+lowerKCh    = basiskc - rangemah * multhighKC
+
+//------------------------{ Squeeze Basics }------------------------------------
+
+//Squeeze Momentum
+sz_dont_use          = linreg(src - avg(avg(highest(high, length), lowest(low, length)), ema(close, length)), length, 0)
+my_sz = invert ? -sz_dont_use : sz_dont_use
+
+//Squeeze Conditions
+sc1         = my_sz >= 0
+sc2         = my_sz < 0
+sc3         = my_sz >= my_sz[1]
+sc4         = my_sz < my_sz[1]
+sc5         = my_sz < 1
+sc6         = my_sz > -1
+//Squeeze On
+lowsqz      = lowerBB > lowerKCl and upperBB < upperKCl
+lsf         = lowsqz == false
+midsqz      = lowerBB > lowerKCm and upperBB < upperKCm
+msf         = midsqz == false
+highsqz     = lowerBB > lowerKCh and upperBB < upperKCh
+hsf         = highsqz == false
+
+//-----------------------{ Color Components }-----------------------------------
+
+//Color Conditions
+clr1        = sc1 and sc3 ? color.green : sc1 and sc4 ? color.white : sc2 and sc4 ? color.red : sc2 and sc3 ? color.white : color.gray
+clr2        = sc1 and sc3 ? color.blue : sc1 and sc4 ? color.white : sc2 and sc4 ? color.yellow : sc2 and sc3 ? color.white : color.gray
+color_scheme = invert ? clr2 : clr1
+
+//Squeeze Dot Colors
+sqzproc     = highsqz ? #ffe500 : midsqz ? #ff0000 : lowsqz ? color.white : na
+
+//-----------------{ Indicator Components and Plots }---------------------------
+
+//Squeeze Dot Plot Above and Below
+sqzpro      = highsqz ? highsqz : midsqz ? midsqz : lowsqz ? lowsqz : na
+plotshape(sqzpro, title="Squeeze Dots Top", style=shape.circle, location=location.top, color=sqzproc)
+plotshape(sqzpro, title="Squeeze Dots Bottom", style=shape.circle, location=location.bottom, color=sqzproc)
+
+//Squeeze Plot
+
+plot(my_sz, title="Squeeze Momentum", color=color_scheme, style=plot.style_columns, linewidth=1)

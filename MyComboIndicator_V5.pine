@@ -5,6 +5,7 @@ src = close
 sma_type = 1
 ema_type = 2
 incompletecandles = input(true, title="Include current unclosed current candle")
+invert = input(false, "Invert Scale")
 bar = incompletecandles ? 0 : 1
 forecast_src = src[bar]
 
@@ -20,7 +21,7 @@ matype(_src, _len, _type, _res) =>
 
 //###################Simple Moving Average#####################
 
-showMA = input(false, title="Show Moving Averages")
+showMA = input(true, title="Show Moving Averages")
 
 sma_1_len = input(100, title="1. Simple Moving Average", type=input.integer)
 sma_2_len = input(200, title="2. Simple Moving Average", type=input.integer)
@@ -36,27 +37,35 @@ plot(sma_2, color=sma_2_col, linewidth=1, title="2. Simple Moving Average")
 
 //###################Exponential Moving Average#####################
 
-showEMA = input(false, title="Show Exponential Moving Averages")
+showEMA = input(true, title="Show Exponential Moving Averages")
 
-ema_1_len = input(8, title="1. Exp. Moving Average", type=input.integer)
-ema_2_len = input(21, title="2. Exp. Moving Average", type=input.integer)
-ema_3_len = input(34, title="3. Exp. Moving Average", type=input.integer)
-ema_4_len = input(55, title="4. Exp. Moving Average", type=input.integer)
+ema_1_len = input(5, title="1. Exp. Moving Average", type=input.integer)
+ema_2_len = input(8, title="2. Exp. Moving Average", type=input.integer)
+ema_3_len = input(13, title="3. Exp. Moving Average", type=input.integer)
+ema_4_len = input(21, title="4. Exp. Moving Average", type=input.integer)
+ema_5_len = input(34, title="5. Exp. Moving Average", type=input.integer)
+ema_6_len = input(55, title="6. Exp. Moving Average", type=input.integer)
 
-ema_1_col = color.red
-ema_2_col = color.white
-ema_3_col = color.yellow
-ema_4_col = color.blue
+ema_1_col = color.gray
+ema_2_col = color.red
+ema_3_col = color.orange
+ema_4_col = color.white
+ema_5_col = color.yellow
+ema_6_col = color.blue
 
-ema_1 = showEMA ? matype(forecast_src, ema_1_len, 2, "") : na
-ema_2 = showEMA ? matype(forecast_src, ema_2_len, 2, "") : na
-ema_3 = showEMA ? matype(forecast_src, ema_3_len, 2, "") : na
-ema_4 = showEMA ? matype(forecast_src, ema_4_len, 2, "") : na
+ema_1 = matype(forecast_src, ema_1_len, 2, "")
+ema_2 = matype(forecast_src, ema_2_len, 2, "")
+ema_3 = matype(forecast_src, ema_3_len, 2, "")
+ema_4 = matype(forecast_src, ema_4_len, 2, "")
+ema_5 = matype(forecast_src, ema_5_len, 2, "")
+ema_6 = matype(forecast_src, ema_6_len, 2, "")
 
-plot(ema_1, color=ema_1_col, linewidth=1, title="1. Exp. Moving Average")
-plot(ema_2, color=ema_2_col, linewidth=1, title="2. Exp. Moving Average")
-plot(ema_3, color=ema_3_col, linewidth=1, title="3. Exp. Moving Average")
-plot(ema_4, color=ema_4_col, linewidth=1, title="4. Exp. Moving Average")
+plot(showEMA ? ema_1 : na, color=ema_1_col, linewidth=1, title="1. Exp. Moving Average", display = display.none)
+plot(showEMA ? ema_2 : na, color=ema_2_col, linewidth=1, title="2. Exp. Moving Average")
+plot(showEMA ? ema_3 : na, color=ema_3_col, linewidth=1, title="3. Exp. Moving Average", display = display.none)
+plot(showEMA ? ema_4 : na, color=ema_4_col, linewidth=1, title="4. Exp. Moving Average", display = display.none)
+plot(showEMA ? ema_5 : na, color=ema_5_col, linewidth=1, title="5. Exp. Moving Average")
+plot(showEMA ? ema_6 : na, color=ema_6_col, linewidth=1, title="6. Exp. Moving Average")
 
 //###################EMA Strategy#####################
 
@@ -87,63 +96,40 @@ bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
 p1 = plot(showBB ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
 plot(showBB ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
 p2 = plot(showBB ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
-fill(p1, p2, color=color.green, title="Background", transp=90)    
+fill(p1, p2, color=color.green, title="Background", transp=90)
 
-//################### Trend Trade System #####################
+//########################### Super Trend ########################################
 
-show_tts = input(true, title="Show Trend Trade System") 
-tts_ema_length = input(26, title="Trend Trade System EMA Length") 
-tts_ema_val = matype(low, tts_ema_length, 2, "")
-tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
-tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
-tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
-tts_up = rma(max(change(src), 0), tts_rsi_len)
-tts_down = rma(-min(change(src), 0), tts_rsi_len)
-tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
-tts_enable_bar_colors = input(true, title="Enable bar colors") 
+showSuperTrend = input(false, title="Show Super Trend")
+Factor=input(3, type=input.float)
+Pd=input(7, minval=1,maxval = 100)
 
-plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
-plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+Up=hl2-(Factor*atr(Pd))
+Dn=hl2+(Factor*atr(Pd))
 
-cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
-barcolor(show_tts and tts_enable_bar_colors and cond1 ? color.green : na) 
+up_trend_color = invert ? color.red : color.green
+down_trend_color = invert ? color.green : color.red
 
-cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
-barcolor(show_tts and tts_enable_bar_colors and cond2 ? color.red : na) 
+TrendUp = float(na)
+TrendUp := close[1]>TrendUp[1]? max(Up,TrendUp[1]) : Up
 
-cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
-barcolor(show_tts and tts_enable_bar_colors and cond3 ? color.orange : na)
+TrendDown = float(na)
+TrendDown := close[1]<TrendDown[1]? min(Dn,TrendDown[1]) : Dn
 
-cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
-barcolor(show_tts and tts_enable_bar_colors and cond4 ? color.teal : na)
+Trend = float(na)
+Trend := close > TrendDown[1] ? 1: close< TrendUp[1]? -1: nz(Trend[1],1)
 
-cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
-barcolor(show_tts and tts_enable_bar_colors and cond5 ? color.white : na)
+Tsl = Trend==1? TrendUp: TrendDown
 
-cond7 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
-plotchar(show_tts and cond7, char='B',color=color.lime, transp=0, location=location.abovebar, editable=false)
+linecolor = Trend == 1 ? up_trend_color : down_trend_color
 
-cond8 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
-plotchar(show_tts and cond8, char='S', color=color.red, transp=0, location=location.abovebar, editable=false)
-
-cond9 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
-plotshape(show_tts and cond9, style=shape.triangleup, color=color.lime, transp=0, location=location.belowbar, editable=false)
-
-cond10 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
-plotshape(show_tts and cond10, style=shape.triangledown, color=color.red, transp=0, location=location.belowbar, editable=false)
-
-cond11 = tts_rsi > 75 and close > tts_ema_val ? 1 : 0
-plotchar(show_tts and cond11, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
-
-cond12 = tts_rsi < 25 and close < tts_ema_val ? 1 : 0
-plotchar(show_tts and cond12, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
+plot(showSuperTrend ? Tsl : na, color = linecolor , style = plot.style_line , linewidth = 2,title = "SuperTrend", editable=false)
 
 //########################### TD Sequential ########################################
-showTDSequential = input(false, "Show TD Sequential")
+showTDSeq = input(false, "Show TD Sequential")
 showSetup = input(true, "Show setup")
 showCountdown = input(false, "Show countdown")
 showPerfect = input(true, "Show perfect counts")
-invertColours = input(false, "Invert colours")
 showOnlyCompletion = input(false, "Only show completions")
 showTDST = input(true, "Show TDST Support and Resistance")
 setupRecyclesOnNextBar = input(true, "Setup recycles on next bar")
@@ -151,8 +137,8 @@ flip = input(false, "Setup commences after TD Price Flip")
 showRisk = input(false, "Show risk line")
 volatilitySmoothing = input(false, "Volatility smoothing (relaxed setup)")
 
-shortColour = invertColours ? color.red : color.green
-longColour = invertColours ? color.green : color.red
+shortColour = invert ? color.red : color.green
+longColour = invert ? color.green : color.red
 smoothedColour = color.black
 
 setupShort = int(na)
@@ -203,18 +189,18 @@ perfectSetup := showPerfect and (setupShort == 8 and high >= high[1] and high >=
    setupLong == 8 and low <= low[1] and low <= low[2] or 
    setupLong == 9 and low <= low[2] and low <= low[3])
 
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
 
-plotchar(showTDSequential and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false)
-plotchar(showTDSequential and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false)
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false, location=invert ? location.belowbar : location.abovebar)
 
 
 cdownShort = int(na)
@@ -263,8 +249,8 @@ perfect8 := cdownCount < 8 ? na : cdownCount == 8 ? close : perfect8[1]
 perfectCountdown := showPerfect and 
    (cdownShort == 13 and high >= perfect8 or cdownLong and low <= perfect8)
 
-plotchar(showTDSequential and not perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Countdown 13", char="", text="13", location=location.belowbar, textcolor=cdownColour, transp=0, editable=false)
-plotchar(showTDSequential and perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Perfect Countdown 13", char="⓭", location=location.belowbar, color=cdownColour, transp=0, editable=false)
+plotchar(showTDSeq and not perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Countdown 13", char="", text="13",location=invert ? location.abovebar : location.belowbar, textcolor=cdownColour, transp=0, editable=false)
+plotchar(showTDSeq and perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Perfect Countdown 13", char="⓭", location=invert ? location.abovebar : location.belowbar, color=cdownColour, transp=0, editable=false)
 
 tdstSupport = float(na)
 tdstResistance = float(na)
@@ -272,14 +258,14 @@ tdRisk = float(na)
 riskbar = int(na)
 
 highest_2 = highest(9)
-tdstResistance := not showTDSequential or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
+tdstResistance := not showTDSeq or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
 lowest_2 = lowest(9)
-tdstSupport := not showTDSequential or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
+tdstSupport := not showTDSeq or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
 
 plot(tdstResistance, title="TDST Resistance", color=longColour, style=plot.style_circles, linewidth=1, editable=false)
 plot(tdstSupport, title="TDST Support", color=shortColour, style=plot.style_circles, linewidth=1, editable=false)
 
-if not showTDSequential or not showRisk
+if not showTDSeq or not showRisk
     tdRisk := na
     tdRisk
 else
@@ -297,3 +283,77 @@ else
             tdRisk
 
 plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
+
+//################### Trend Trade System #####################
+
+show_tts = input(true, title="Show Trend Trade System") 
+
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_ema_val = matype(low, tts_ema_length, 2, "")
+
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
+
+tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
+tts_up = rma(max(change(src), 0), tts_rsi_len)
+tts_down = rma(-min(change(src), 0), tts_rsi_len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+
+tts_enable_bar_colors = input(false, title="Enable bar colors") 
+
+plot(show_tts ? tts_vwap_val : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(show_tts ? tts_ema_val : na, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
+
+cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond1 ? color.green : na, editable=false) 
+
+cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond2 ? color.red : na, editable=false) 
+
+cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond3 ? color.orange : na, editable=false)
+
+cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond4 ? color.teal : na, editable=false)
+
+cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
+barcolor(show_tts and tts_enable_bar_colors and cond5 ? color.white : na, editable=false)
+
+//plot chars
+cond7 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
+plotchar(show_tts and tts_enable_bar_colors and not showTDSeq and cond7, char='B',color=color.lime, transp=0, location=location.abovebar, editable=false)
+
+cond8 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
+plotchar(show_tts and tts_enable_bar_colors and not showTDSeq and cond8, char='S', color=color.red, transp=0, location=location.abovebar, editable=false)
+
+cond9 = tts_rsi > 50 and close < tts_vwap_val and close > tts_ema_val ? 1 : 0
+plotshape(show_tts and tts_enable_bar_colors and not showTDSeq and cond9, style=shape.triangleup, color=color.lime, transp=0, location=location.belowbar, editable=false)
+
+cond10 = tts_rsi < 50 and close > tts_vwap_val and close < tts_ema_val ? 1 : 0
+plotshape(show_tts and tts_enable_bar_colors and not showTDSeq and cond10, style=shape.triangledown, color=color.red, transp=0, location=location.belowbar, editable=false)
+
+cond11 = tts_rsi > 75 and close > tts_ema_val ? 1 : 0
+plotchar(show_tts and tts_enable_bar_colors and not showTDSeq and cond11, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
+
+cond12 = tts_rsi < 25 and close < tts_ema_val ? 1 : 0
+plotchar(show_tts and tts_enable_bar_colors and not showTDSeq and cond12, char='T', color=color.blue, transp=0, location=location.abovebar, editable=false)
+//###############################Support/Resistance Envelope##################
+
+showSRChannel = input(false, title="Show Support Resistance Channel")
+
+srlength  = input(defval = 25, title = "Envelope Length", minval = 1, maxval = 1000)
+sigma   = input(defval = 1.0, title = "Sigma Multiply", minval = 0.01, step = 0.1)
+
+upperEnvelope   = highest(high, srlength)
+lowerEnvelope   = lowest(low, srlength)
+envelopeSigma   = ((upperEnvelope - lowerEnvelope) / 8) * sigma
+envelopeMedian  = (upperEnvelope + lowerEnvelope) / 2
+upperSigma    =  envelopeMedian + envelopeSigma
+lowerSigma    = envelopeMedian - envelopeSigma
+
+
+plot(showSRChannel ? upperEnvelope : na, title = "Upper Envelope", color = #66FFFF, linewidth = 1, display=display.none)
+plot(showSRChannel ? upperSigma : na, title = "Upper Sigma", color = #66FFFF, linewidth = 1, style = plot.style_line)
+plot(showSRChannel ? envelopeMedian : na, title = "Median", color = color.silver, linewidth = 1, style = plot.style_circles)
+plot(showSRChannel ? lowerSigma : na, title = "Lower Sigma", color = #FF1133, linewidth = 1, style = plot.style_line)
+plot(showSRChannel ? lowerEnvelope : na, title = "Lower Envelope", color = #FF1133, linewidth = 1, display=display.none)
