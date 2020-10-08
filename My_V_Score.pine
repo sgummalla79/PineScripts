@@ -1,0 +1,15 @@
+volumeSum = float(na)
+volumeVwapSum = float(na)
+volumeVwap2Sum = float(na)
+
+sqr(n) => n * n
+
+volumeSum = nz(volumeSum[1]) + volume
+volumeVwapSum = nz(volumeVwapSum[1]) + volume * vwap
+volumeVwap2Sum = nz(volumeVwap2Sum[1]) + volume * sqr(vwap)
+
+price = volumeVwapSum / volumeSum
+deviation = sqrt(max(volumeVwap2Sum / volumeSum - sqr(price), 0))
+
+vscore = (((price - close)*(-1))/deviation) > 5 or (((price - close)*(-1))/deviation) < -5 ? 0 else (((price - close)*(-1))/(deviation))
+plot(vscore)

@@ -1,0 +1,13 @@
+//@version=2
+//WELLES WILDER SMOOTHING / WILDER'S MOVING AVERAGE
+//author: @fr3762 KIVANÇ
+study("WILD MA", overlay=true)
+
+malength = input(14, "length", minval=1)
+wild=nz(wild[1])+(close-nz(wild[1]))/malength
+
+col1= wild>wild[1]
+col3= wild<wild[1]
+color = col1 ? green : col3 ? red : yellow
+
+plot(wild, color=color, linewidth=2, title="WILD")

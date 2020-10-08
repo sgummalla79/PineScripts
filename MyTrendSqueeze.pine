@@ -1,0 +1,31 @@
+// Madrid : Squeeze Trend : 02/Aug/2015 : 11:41 : 2.0
+// This Study determines the range where the trend is more profitable.
+// http://madridjourneyonws.blogspot.com/
+//
+
+//@version=4
+study("My Trend Squeeze", shorttitle="MTS")
+
+src = close
+res = input(title="Resolution", type=input.resolution, defval='')
+ma_type = input(defval='EMA', title='Bollinger Bands Calculation Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+main_length = input(34, title="Moving Average Length")
+ref_length = input(13, title="Reference Length")
+sqz_length = input(5, title="Squeeze Length")
+
+calc_ma(_src, _len, _type, _res) =>
+    symSrc = _res == '' ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
+    _type == '' ? _src : _type == 'SMA' ? sma(symSrc,_len) : _type == 'EMA' ? ema(symSrc,_len) : _type == 'WMA' ? wma(symSrc, _len) : _type == 'VWMA' ? vwma(symSrc, _len) : rma(symSrc, _len)
+
+main_ma = calc_ma(src, main_length, ma_type, res)
+ref_ma = calc_ma(src, ref_length, ma_type, res)
+sqz_ma = calc_ma(src, sqz_length, ma_type, res)
+
+mainma = close - main_ma
+refma = ref_ma - main_ma
+sqzma = sqz_ma - main_ma
+
+hline(0)
+plotcandle(0, mainma, 0, mainma, color = mainma >= 0 ? color.aqua : color.fuchsia)
+plotcandle(0, sqzma, 0, sqzma, color = sqzma >= 0 ? color.lime : color.red)
+plotcandle(0, refma, 0, refma, color = (refma >= 0 and mainma < refma) or (refma < 0 and mainma > refma ) ? color.yellow : refma >= 0 ? color.green : color.maroon)

@@ -1,0 +1,201 @@
+//@version=4
+study(title="RSI/MFI/Stoch - MTF - Entry signals/Trend colored bars - JD", shorttitle="RSI/MFI/Stoch - MTF - Entry signals/Trend colored bars - JD")
+useCurrentRes = input(false, title="Trend Confirmation Use Current Chart Resolution?")
+resCustom = input(title="Trend Confirmation - Use Different Timeframe? Uncheck Box Above", type=input.resolution, defval="D")
+useCurrentprice = true//input(true, title="Use Current Resolution price action for more detail and NO REPAINT! IF UNCHECKED, COLORS CAN/WILL REPAINT (!) and are only valid and final once the custom timeframe has closed!!!")
+show_mfi=input(1, minval = 1, maxval = 3, title="Trend Confirmation Base indicator: 1= RSI, 2= MFI, 3= stoch")
+trend_conf_src = close
+base_len = 14 //input(14, minval=1, title="RSI/MFI/Stoch Length")
+len2=23//input(23, minval=1, title="Smoothing Length")
+th1=70//input(70, minval=1, title="overbought")
+th2=30//input(30, minval=1, title="oversold")
+show_rsi=true//input(true, title="show RSI/MFI/Stoch line")
+show_bg=false//input(false, title="show RSI/MFI/Stoch background color")
+color_bars=true//input(true, title="color pricebars (deselecting 'borders' in the 'style' tab is recommended)")
+color_base=7//input(7, minval = 1, maxval = 7, title="color bars based on: 1= histogram slope, 2=+/- histogram, 3=+/- rsi/mfi/stoch-line, 4= uptrend (buy bias), 5= downtrend (sell bias), 6= auto trend detection (ADX based), 7= trendline break (BETA)")
+show_lines=true//input(true,title="show highs/lows trendlines (dotted lines are plotted in realtime, full lines with delay = lookback length")
+show_cross=false//input(false,title="show trendline break crosses")
+
+tllen_l=20//input(20,title="trendline lookback length - lows")
+tllen_h=20//input(20,title="trendline lookback length - highs")
+
+res = useCurrentRes ? timeframe.period : resCustom
+
+//timeframe conversion
+base_res=timeframe.period=="1"?1:timeframe.period=="3"?3:timeframe.period=="5"?5:timeframe.period=="15"?15:timeframe.period=="30"?30:timeframe.period=="45"?45:timeframe.period=="60"?60:timeframe.period=="120"?120:timeframe.period=="180"?180:timeframe.period=="240"?240:timeframe.period=="D"?1440:timeframe.period=="W"?10080:timeframe.period=="M"?302400:na
+custom_res=resCustom=="1"?1:resCustom=="3"?3:resCustom=="5"?5:resCustom=="15"?15:resCustom=="30"?30:resCustom=="45"?45:resCustom=="60"?60:resCustom=="120"?120:resCustom=="180"?180:resCustom=="D"?1440:resCustom=="W"?10080:na
+res_factor=useCurrentRes?1:base_res>custom_res?1:round(custom_res/base_res)
+len= useCurrentRes? base_len : useCurrentprice? base_len*res_factor:base_len
+
+//MFI calcutation
+TypPrice = hlc3
+upper_s = sum(volume * (change(TypPrice) <= 0 ? 0 : TypPrice), len)
+lower_s = sum(volume * (change(TypPrice) >= 0 ? 0 : TypPrice), len)
+mf = rsi(upper_s, lower_s)
+
+//stoch calculation
+st = stoch(close,high,low,len)
+
+//RSI/MFI/Stoch selection
+rsi_base = show_mfi==1?rsi(trend_conf_src,len):show_mfi==2?mf:st
+
+//RSI output MTF
+rsi = security(syminfo.tickerid, useCurrentprice?timeframe.period:res, rsi_base)
+rsi_MTF = security(syminfo.tickerid, res, rsi_base)
+smooth_base=ema(rsi_base,len)
+smooth = useCurrentprice?ema(rsi,len):security(syminfo.tickerid, res, smooth_base)
+
+Diff=rsi-smooth
+
+//alternative version MA definition
+//smooth2=ema(ema(Diff,res_factor),len2)
+
+//2nd version MA TEMA definition
+sema1 = ema(Diff,res_factor)
+sema2 = ema(sema1, len2)
+sema3 = ema(sema2, len2)
+smooth2= 3 * (sema1 - sema2) + sema3
+
+smooth_up=smooth>=smooth[1]?true:false
+smooth2_up=smooth2>=smooth2[2]?true:false
+
+//ADX and DI trend calculation
+TrueRange = max(max(high-low, abs(high-nz(close[1]))), abs(low-nz(close[1])))
+DirectionalMovementPlus = high-nz(high[1]) > nz(low[1])-low ? max(high-nz(high[1]), 0): 0
+DirectionalMovementMinus = nz(low[1])-low > high-nz(high[1]) ? max(nz(low[1])-low, 0): 0
+
+calc_DIPlus()=>
+    base_DIPlus = float(na)
+    SmoothedTrueRange=float(na)
+    SmoothedTrueRange := nz(SmoothedTrueRange[1]) - (nz(SmoothedTrueRange[1])/len) + TrueRange
+    SmoothedDirectionalMovementPlus=float(na)
+    SmoothedDirectionalMovementPlus := nz(SmoothedDirectionalMovementPlus[1]) - (nz(SmoothedDirectionalMovementPlus[1])/len) + DirectionalMovementPlus
+    base_DIPlus := SmoothedDirectionalMovementPlus / SmoothedTrueRange * 100
+    base_DIPlus
+    
+calc_DIMinus()=>
+    base_DIMinus = float(na)
+    SmoothedTrueRange=float(na)
+    SmoothedTrueRange := nz(SmoothedTrueRange[1]) - (nz(SmoothedTrueRange[1])/len) + TrueRange
+    SmoothedDirectionalMovementMinus=float(na)
+    SmoothedDirectionalMovementMinus := nz(SmoothedDirectionalMovementMinus[1]) - (nz(SmoothedDirectionalMovementMinus[1])/len) + DirectionalMovementMinus
+    base_DIMinus := SmoothedDirectionalMovementMinus / SmoothedTrueRange * 100
+    base_DIMinus
+
+//ADX output MTF
+HTF=base_res>custom_res?true:false
+DIPlus = security(syminfo.tickerid, useCurrentprice?timeframe.period:res, calc_DIPlus())
+DIPlusS = security(syminfo.tickerid, res, calc_DIPlus())
+DIMinus = security(syminfo.tickerid, useCurrentprice?timeframe.period:res, calc_DIMinus())
+DIMinusS = security(syminfo.tickerid, res, calc_DIMinus())
+
+DIdiff = HTF?(DIPlus - DIMinus):(DIPlusS - DIMinusS)
+DIcolor = DIdiff<0?color.red:DIdiff>0?color.green:color.yellow
+DX = HTF?(abs(DIPlus-DIMinus) / (DIPlus+DIMinus)*100):(abs(DIPlusS-DIMinusS) / (DIPlusS+DIMinusS)*100)
+ADX = sma(DX, len)
+
+momentprod=useCurrentprice and HTF?DIdiff*ADX*res_factor/2:DIdiff*ADX
+smooth_ADX=ema(momentprod,len) 
+strong_trend=((DIdiff<0 and smooth_ADX<=smooth_ADX[1]) or (DIdiff>0 and smooth_ADX>=smooth_ADX[1]))?true:false
+
+//color definition
+emacolor=Diff>=0?(smooth2_up?color.new(color.green,0):color.new(color.green,50)):(smooth2_up?color.maroon:color.red)
+smooth2color=smooth2>=smooth2[2]?color.green:color.red
+bcol= rsi_MTF<th2?color.new(color.red,75):rsi_MTF>th1?color.new(color.lime,85):rsi>50?color.new(color.green,90):color.new(color.maroon,85)
+rsicol=bcol==color.new(color.red,75)?color.red:bcol==color.new(color.maroon,85)?color.new(color.maroon,20):bcol==color.new(color.lime,85)?color.lime:bcol==color.new(color.green,90)?color.new(color.green,30):na
+//plot(Diff, title="RSI - histo", style=plot.style_histogram, color=emacolor,linewidth=2,transp=0)
+//plot(smooth2,title="RSI - ma", color=smooth2color,linewidth=3,transp=20)
+//plot(show_rsi?rsi-50:na,linewidth=2,color=rsicol,transp=0)
+//bgcolor(title="RSI overbought/oversold",color=show_bg?bcol:na)
+
+//trendline pivots
+last_high1=pivothigh(Diff,tllen_h,tllen_h)
+last_low1=pivotlow(Diff,tllen_l,tllen_l)
+color_high=highest(Diff,2*tllen_h)<highest(Diff,5*tllen_h)?color.fuchsia:na
+color_low=lowest(Diff,2*tllen_l)>lowest(Diff,5*tllen_l)?color.lime:na
+_barshigh=barssince(Diff >= last_high1)
+_barslow=barssince(Diff <= last_low1)
+
+//last high-low point
+lh1=highest(Diff,tllen_h)
+lh2=highest(Diff,6*tllen_h)
+lh3=highest(Diff,10*tllen_h)
+//indication of possible reversal or H/S pattern
+high_falling=lh1<lh2 and lh2<lh3?true:false
+
+last_high1_period=barssince(Diff >= lh1)
+last_high2_period=barssince(Diff >= lh2)
+
+ll1=lowest(Diff,tllen_l)
+ll2=lowest(Diff,5*tllen_l)
+ll3=lowest(Diff,12*tllen_l)
+//indication of possible reversal or inv. H/S pattern
+low_rising=ll1>ll2 and ll2>ll3?true:false
+
+//trendline plot
+//plot(show_lines?last_high1:na,title="trendline high",color=color_high,offset=-1*tllen_h,transp=0)
+//plot(show_lines?last_low1:na,title="trendline low",color=color_low,offset=-1*tllen_l,transp=0)
+
+//ext high trendlines
+_show_last=10000
+Ph1y=fixnan(last_high1)
+Ph2y=float(na)
+Ph2y:=change(Ph1y)!=0?Ph1y[1]: (nz(Ph2y[1]) == 0 ? na : Ph2y[1])
+Ph1x = 0
+Ph2x=float(na)
+val1 = barssince(change(nz(Ph1y[1]))!=0)
+Ph2x := change(Ph1y)!=0? val1 :(nz(Ph2x[1]) == 0 ? na : Ph2x[1])
+Ph2xbis=val1
+// point slope
+mh=float(na)
+mh :=change(Ph1y)!=0? ((Ph1y-Ph2y) / (Ph2x)): (nz(mh[1]) == 0 ? na : mh[1])
+// plot range
+ext_high_tline = Ph1y + mh*(Ph2xbis)
+ext_high_tline_RT = Ph1y + mh*(Ph2xbis+tllen_h)
+color_ext_tl_high=mh<=0?color.fuchsia:na
+//plot(show_lines?mh<=0 and ext_high_tline_RT[tllen_h]!=ext_high_tline?ext_high_tline:na:na, title="ext trendline high", color=color_ext_tl_high, linewidth=1, style=plot.style_linebr, transp=40,offset=-tllen_h,show_last=_show_last)
+//plot(show_lines?mh<=0?ext_high_tline_RT:na:na, title="ext trendline high RT", color=color_ext_tl_high, linewidth=1, style=plot.style_circles, transp=40,show_last=_show_last)
+
+//ext low trendlines
+Pl1y=fixnan(last_low1)
+Pl2y=float(na)
+Pl2y:=change(Pl1y)!=0?Pl1y[1]:(nz(Pl2y[1]) == 0 ? na : Pl2y[1])
+Pl1x = 0
+Pl2x=float(na)
+val2 = barssince(change(nz(Pl1y[1]))!=0)
+Pl2x := change(Pl1y)!=0?val2:(nz(Pl2x[1]) == 0 ? na : Pl2x[1])
+Pl2xbis=barssince(change(val2)!=0)
+// point slope
+ml=float(na)
+ml :=change(Pl1y)!=0? ((Pl1y-Pl2y) / (Pl2x)): (nz(ml[1]) == 0 ? na : ml[1])
+// plot range
+ext_low_tline = Pl1y + ml*(Pl2xbis)
+ext_low_tline_RT = Pl1y + ml*(Pl2xbis+tllen_l)
+color_ext_tl_low=ml>=0?color.lime:na
+//plot(show_lines?ml>=0 and ext_low_tline_RT[tllen_l]!=ext_low_tline?ext_low_tline:na:na, title="ext trendline low", color=color_ext_tl_low, linewidth=1, style=plot.style_linebr, transp=40,offset=-tllen_l,show_last=_show_last)
+//plot(show_lines?ml>=0?ext_low_tline_RT:na:na, title="ext trendline low RT", color=color_ext_tl_low, linewidth=1, style=plot.style_circles, transp=40,show_last=_show_last)
+
+//detect trendline breaks
+avg_Diff=ema(Diff,res_factor)
+val3 = crossover(avg_Diff,ext_high_tline_RT)
+break_tl_high=mh<=0?val3:false
+val4 = crossunder(avg_Diff,ext_low_tline_RT)
+break_tl_low=ml>=0?val4:false
+cross_color=break_tl_high?color.lime:break_tl_low?color.fuchsia:color.yellow
+above_tl_high=avg_Diff>=ext_high_tline?true:false
+below_tl_low=avg_Diff<=ext_low_tline?true:false
+
+//mark trendline crosses
+YPosition = break_tl_high?ext_high_tline_RT:break_tl_low?ext_low_tline_RT:na
+//plotshape(show_lines and show_cross and break_tl_high? YPosition : na,style=shape.triangleup, location=location.absolute,size=size.tiny, color=cross_color,transp=0)
+//plotshape(show_lines and show_cross and break_tl_low? YPosition : na,style=shape.triangledown, location=location.absolute,size=size.tiny, color=cross_color,transp=0)
+
+//final coloring
+val5 = ema(Diff,res_factor)
+trend_color=strong_trend?DIcolor:(smooth2>=0 or val5>=0?(high_falling?color.red:color.green):(low_rising?color.green:color.red))
+trendline_color=Diff<ext_low_tline_RT?Diff>0?smooth2color:color.red:Diff>ext_high_tline_RT?Diff<0?smooth2color:color.green:(val5>=0?color.green:color.red)
+barcolor_ref=color_base==1?smooth2color:color_base==2?(val5>=0?color.green:color.red):color_base==3?((useCurrentprice?ema(rsi,res_factor):rsi)>50?color.green:color.red):color_base==4?(smooth2>=0 or ema(Diff,res_factor)>=0?color.green:(low_rising?smooth2color:color.red)):color_base==5?(smooth2<=0 or ema(Diff,res_factor)<=0?color.red:(high_falling?smooth2color:color.green)):color_base==6?trend_color:color_base==7?trendline_color:na
+barc=barcolor_ref==color.green?color.new(color.lime,30):barcolor_ref==color.red?color.new(color.red,20):color.yellow
+barcolor(color_bars?barc:na)
+//baseline_col=strong_trend?DIcolor:na
+//plot(0,color=baseline_col,transp=0,linewidth=2)

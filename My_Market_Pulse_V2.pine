@@ -1,0 +1,634 @@
+//@version=4
+study(title="Market Pulse", shorttitle="MP", overlay=true)
+
+//1. Simple Moving Average
+//2. Exponential Moving Average
+//3. Hull Moving Average
+//4. Weighted Moving Average
+//5. Voulme Weighted Moving Average
+
+calc_ma(_src, _len, _type, _res) =>
+    symSrc = _res == '' ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
+    _type == '' ? _src : _type == 'SMA' ? sma(symSrc,_len) : _type == 'EMA' ? ema(symSrc,_len) : _type == 'WMA' ? wma(symSrc, _len) : _type == 'VWMA' ? vwma(symSrc, _len) : rma(symSrc, _len)
+
+matype(_src, _len, _type, _res) =>
+    symSrc = _res == "" ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
+    _len == 0 ? _src : (_type==1 ? sma(symSrc,_len) : _type==2 ? ema(symSrc,_len) : _type==3 ? wma(2*wma(symSrc, _len/2)-wma(symSrc, _len), round(sqrt(_len))) : _type==4 ? wma(symSrc, _len) : _type==5 ? vwma(symSrc, _len) : na)
+
+lime      = #15ff00
+green     = #53b987
+brightred = #e91e63
+red       = #eb4d5c
+yellgreen = color.blue
+yellow    = #ffeb3b
+yellred   = color.purple
+white     = color.white
+
+dmi_bars_plot = input(false, title="Plot DMI")
+dmi_exit_plot = input(false, title="Plot DMI Exit") 
+dmi_bars_ebc = input(false, title="Color Bars Based on DMI")
+coral_plot =input(false, title="Plot Coral")
+coral_ebc=input(false, title="Color Bars Based on Coral Indicator")
+tts_ebc = input(false, title="Color Bars Based on Trend Trade System") 
+trend_conf_ebc = input(false, title="Color Bars Based on Trend Confirmation System") 
+
+// ############# Market Pulse ////////
+pulse_show = input(false, title="Show Market Pulse")
+pluse_src = close
+pulse_length = input(defval = 10, title = "Period Length", minval=1)
+pulse_tmp1 = max(pluse_src-pluse_src[1],0)
+pulse_tmp2 = max(pluse_src[1]-pluse_src,0)
+pulse_d2 = sum(pulse_tmp1, pulse_length)
+pulse_d4 = sum(pulse_tmp2, pulse_length)
+pulse_ad3 = (pulse_d2 + pulse_d4 == 0) ? 0 : (pulse_d2 - pulse_d4) / (pulse_d2 + pulse_d4) * 100
+pulse_coeff = 2 / (pulse_length + 1) * abs(pulse_ad3) / 100
+pulse_asd = float(na)
+pulse_asd := (pulse_coeff * pluse_src) + ((1 - pulse_coeff) * nz(pulse_asd[1])) // Calculate moving average
+
+pulse_vwma8 = sum(volume * close, 8) / sum(volume, 8)
+pulse_vwma21 = sum(volume * close, 21) / sum(volume, 21)
+pulse_vwma34 = sum(volume * close, 34) / sum(volume, 34)
+pulse_bullish = pulse_vwma8 > pulse_vwma21 and pulse_vwma21 > pulse_vwma34 ? 1 : 0
+pulse_bearish = pulse_vwma8 < pulse_vwma21 and pulse_vwma21 < pulse_vwma34 ? 1 : 0
+pulse_distribution = not pulse_bullish and not pulse_bearish ? 1 : 0
+
+pulse_asd_c = pulse_bearish and close <= pulse_asd ? color.red : pulse_bullish and close >= pulse_asd ? color.green : color.gray
+plot(pulse_show ? pulse_asd : na, title="Variable Moving Average", color=pulse_asd_c, transp = 0, style = plot.style_line, linewidth=2)
+
+//################### Simple Breakout #####################
+smpl_break_out_show = input(false, title="Show Simple Breakout")
+smpl_break_out_src = close
+smpl_break_out_sma10 = sma(smpl_break_out_src, 10)
+smpl_break_out_sma30 = sma(smpl_break_out_src, 30)
+smpl_break_out_sma100 = sma(smpl_break_out_src, 100)
+smpl_break_out_xHH = highest(high, 21)
+smpl_break_out_xLL = lowest(low, 21)
+smpl_break_out_xValue = smpl_break_out_xHH - smpl_break_out_xLL
+smpl_break_out_stofastK = (close - smpl_break_out_xLL) / smpl_break_out_xValue * 100
+smpl_break_out_stosloK = sma(smpl_break_out_stofastK, 3)
+smpl_break_out_stoSloD = sma(smpl_break_out_stosloK, 3)
+smpl_break_out_stosloOB = 80
+smpl_break_out_stosloOS = 20
+[smpl_break_out_macdLine, smpl_break_out_signalLine, smpl_break_out_MH] = macd(close, 12, 26, 9)
+
+smpl_break_out_bullish_signal = (close > smpl_break_out_sma10 and close[1] <= smpl_break_out_sma10[1]) and (close > smpl_break_out_sma100) and smpl_break_out_stosloK < smpl_break_out_stosloOB and smpl_break_out_stoSloD < smpl_break_out_stosloOB and smpl_break_out_MH > 0 ? 1 : 0
+smpl_break_out_bearish_signal = (close < smpl_break_out_sma10 and close[1] >= smpl_break_out_sma10[1]) and (close < smpl_break_out_sma100) and smpl_break_out_stosloK > smpl_break_out_stosloOS and smpl_break_out_stoSloD > smpl_break_out_stosloOS and smpl_break_out_MH < 0 ? 1 : 0
+
+plotshape(smpl_break_out_show and smpl_break_out_bullish_signal, style=shape.triangleup, location=location.belowbar, color=lime, transp=0, size=size.tiny)
+plotshape(smpl_break_out_show and smpl_break_out_bearish_signal, style=shape.triangledown, location=location.abovebar, color=brightred, transp=0, size=size.tiny)
+
+//################### color bars based on dmi #####################
+dmi_bars_src = close
+dmi_bars_length = 14
+dmi_bars_ADXLevels = 20
+dmi_bars_HiDiff = high - high[1]
+dmi_bars_LoDiff = low[1] - low
+dmi_bars_PlusDM = dmi_bars_HiDiff > dmi_bars_LoDiff and dmi_bars_HiDiff > 0 ? dmi_bars_HiDiff : 0
+dmi_bars_MinusDM = dmi_bars_LoDiff > dmi_bars_HiDiff and dmi_bars_LoDiff > 0 ? dmi_bars_LoDiff : 0
+
+//wilders moving average
+dmi_bars_wild_plus_dm = float(na)
+dmi_bars_wild_plus_dm := nz(dmi_bars_wild_plus_dm[1])+(dmi_bars_PlusDM-nz(dmi_bars_wild_plus_dm[1]))/dmi_bars_length
+
+dmi_bars_wild_minus_dm = float(na)
+dmi_bars_wild_minus_dm := nz(dmi_bars_wild_minus_dm[1])+(dmi_bars_MinusDM-nz(dmi_bars_wild_minus_dm[1]))/dmi_bars_length
+
+dmi_bars_Plus = 100 * dmi_bars_wild_plus_dm
+dmi_bars_Minus = 100 * dmi_bars_wild_minus_dm
+dmi_bars_BullishSignal = crossover(dmi_bars_Plus,dmi_bars_Minus)
+dmi_bars_BearishSignal = crossunder(dmi_bars_Plus,dmi_bars_Minus)
+
+dmi_bars_DX = (dmi_bars_Plus + dmi_bars_Minus > 0) ? 100 * abs(dmi_bars_Plus - dmi_bars_Minus) / (dmi_bars_Plus + dmi_bars_Minus) : 0
+
+dmi_bars_ADX = float(na)
+dmi_bars_ADX := nz(dmi_bars_ADX[1])+(dmi_bars_DX-nz(dmi_bars_ADX[1]))/dmi_bars_length
+
+dmi_bars_BullishZone = dmi_bars_Plus > dmi_bars_Minus and dmi_bars_ADX >= dmi_bars_ADXLevels ? true : false
+dmi_bars_BearishZone = dmi_bars_Plus < dmi_bars_Minus and dmi_bars_ADX >= dmi_bars_ADXLevels ? true : false
+dmi_bars_NeutralZone = not dmi_bars_BullishZone and not dmi_bars_BearishZone ? true : false
+
+dmi_bars_color = dmi_bars_NeutralZone ? color.yellow : dmi_bars_BullishZone ? color.green : dmi_bars_BearishZone ? color.red : na
+barcolor(dmi_bars_ebc ? dmi_bars_color : na)
+plotshape(dmi_bars_plot and not dmi_bars_ebc ? 1 : na,color=dmi_bars_color, location=location.abovebar, style=shape.circle)
+
+//################ Bollinger Bands ##################
+bb_src = close
+bb_show = input(false, title="Show Bollinger Bands")
+bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
+bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
+
+bb_stdev = stdev(bb_src, bb_length)
+bb_basis = matype(bb_src, bb_length, 1, "")
+bb_upper = bb_basis + bb_stdDev_factor * bb_stdev
+bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
+
+bb_p1 = plot(bb_show ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
+plot(bb_show ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+bb_p2 = plot(bb_show ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
+fill(bb_p1, bb_p2, color=color.green, title="Background", transp=90)
+
+//########################### Super Trend ########################################
+
+super_trend_show = input(false, title="Show Super Trend")
+super_trend_multiplier = input(3, type=input.float, title="Multiplier")
+super_trend_atr_len = input(7, minval=1,maxval = 100, title="ATR Length")
+
+super_trend_up=hl2-(super_trend_multiplier*atr(super_trend_atr_len))
+super_trend_dn=hl2+(super_trend_multiplier*atr(super_trend_atr_len))
+
+super_trend_up_trend = float(na)
+super_trend_up_trend := close[1]>super_trend_up_trend[1]? max(super_trend_up,super_trend_up_trend[1]) : super_trend_up
+
+super_trend_down_trend = float(na)
+super_trend_down_trend := close[1]<super_trend_down_trend[1]? min(super_trend_dn,super_trend_down_trend[1]) : super_trend_dn
+
+super_trend_current_trend = float(na)
+super_trend_current_trend := close > super_trend_down_trend[1] ? 1: close< super_trend_up_trend[1]? -1: nz(super_trend_current_trend[1],1)
+
+super_trend_tsl = super_trend_current_trend==1? super_trend_up_trend: super_trend_down_trend
+super_trend_line_color = super_trend_current_trend == 1 ? color.green : color.red
+
+plot(super_trend_show ? super_trend_tsl : na, color = super_trend_line_color , style = plot.style_line , linewidth = 2,title = "SuperTrend", editable=false)
+
+//###################EMA Strategy#####################
+
+ema_strategy_show = input(true, title="Show Exponential Moving Averages Strategy")
+ema_strategy_src = close
+ema_strategy_8 = matype(ema_strategy_src, 8, 2, "")
+ema_strategy_13 = matype(ema_strategy_src, 13, 2, "")
+ema_strategy_21 = matype(ema_strategy_src, 21, 2, "")
+ema_strategy_55 = matype(ema_strategy_src, 55, 2, "")
+ema_strategy_buy_cond_ema = ema_strategy_8 > ema_strategy_13 and ema_strategy_13 > ema_strategy_21 and crossover(ema_strategy_21, ema_strategy_55)
+ema_strategy_sell_cond_ema = ema_strategy_8 < ema_strategy_13 and ema_strategy_13 < ema_strategy_21 and crossunder(ema_strategy_21, ema_strategy_55)
+
+plotshape(ema_strategy_show and ema_strategy_buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
+plotshape(ema_strategy_show and ema_strategy_sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)
+
+//################### Trend Trade System #####################
+tts_src=close
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_ema_val = matype(low, tts_ema_length, 2, "")
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap_val = matype(vwap, tts_vwap_length, 2, "")
+tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
+tts_up = rma(max(change(tts_src), 0), tts_rsi_len)
+tts_down = rma(-min(change(tts_src), 0), tts_rsi_len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+
+plot(tts_vwap_val, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line", display = display.none)
+plot(tts_ema_val, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
+
+tts_cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond1 ? lime : na, editable=false) 
+
+tts_cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond2 ? brightred : na, editable=false) 
+
+tts_cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond3 ? red : na, editable=false)
+
+tts_cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond4 ? green : na, editable=false)
+
+tts_cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
+barcolor(tts_ebc and tts_cond5 ? color.white : na, editable=false)
+
+//################### Coral Indicator #####################
+coral_src=close
+coral_sm =input(21, title="Coral Indicator Smoothing Period")
+coral_cd = input(0.4, title="Coral Indicator Constant D")
+
+coral_di = (coral_sm - 1.0) / 2.0 + 1.0
+coral_c1 = 2 / (coral_di + 1.0)
+coral_c2 = 1 - coral_c1
+coral_c3 = 3.0 * (coral_cd * coral_cd + coral_cd * coral_cd * coral_cd)
+coral_c4 = -3.0 * (2.0 * coral_cd * coral_cd + coral_cd + coral_cd * coral_cd * coral_cd)
+coral_c5 = 3.0 * coral_cd + 1.0 + coral_cd * coral_cd * coral_cd + 3.0 * coral_cd * coral_cd
+
+coral_i1 = float(na)
+coral_i1 := coral_c1*coral_src + coral_c2*nz(coral_i1[1])
+
+coral_i2 = float(na)
+coral_i2 := coral_c1*coral_i1 + coral_c2*nz(coral_i2[1])
+
+coral_i3 = float(na)
+coral_i3 := coral_c1*coral_i2 + coral_c2*nz(coral_i3[1])
+
+coral_i4 = float(na)
+coral_i4 := coral_c1*coral_i3 + coral_c2*nz(coral_i4[1])
+
+coral_i5 = float(na)
+coral_i5 := coral_c1*coral_i4 + coral_c2*nz(coral_i5[1])
+
+coral_i6 = float(na)
+coral_i6 := coral_c1*coral_i5 + coral_c2*nz(coral_i6[1])
+
+bfr = -coral_cd*coral_cd*coral_cd*coral_i6 + coral_c3*(coral_i5) + coral_c4*(coral_i4) + coral_c5*(coral_i3)
+// --------------------------------------------------------------------------
+// For the Pinescript coders: Determining trend based on the mintick step. 
+// --------------------------------------------------------------------------
+//bfrC = bfr - nz(bfr[1]) > syminfo.mintick ? green : bfr - nz(bfr[1]) < syminfo.mintick ? color.red : color.blue
+coral_bfrC = bfr > nz(bfr[1]) ? lime : bfr < nz(bfr[1])  ? brightred : color.blue
+coral_tc=coral_ebc? na :coral_bfrC
+plot(coral_plot ? bfr : na, title="Trend", linewidth=3, style=plot.style_circles, color=coral_tc)
+barcolor(coral_plot and coral_ebc ? coral_bfrC : na)
+
+//############### DMI Exit Signal ######
+int   dmi_exit_len        = input(14, title="DMI Length")
+int   dmi_exit_adxl       = input(20, title="ADX Length")
+int   dmi_exit_pct        = input(defval=500,title="Volume Spike Above Average Percentage")
+int   dmi_exit_lkbk       = input(defval=21, title="Highs and Lows Lookback Period")
+int   dmi_exit_start      = input(60,title="X Axis Starting Point")
+
+
+//{Volume Spike Code}
+
+//Volume Spike formula
+dmi_exit_pctg  = (dmi_exit_pct/100) * sma(volume,50)
+dmi_exit_spike = volume > (sma(volume,50) + dmi_exit_pctg)
+
+//{ADX and DMI Code}
+
+//ADX and DMI
+dmi_exit_up      = change(high)
+dmi_exit_down    = -change(low)
+dmi_exit_plusDM  = na(dmi_exit_up) ? na : (dmi_exit_up > dmi_exit_down and dmi_exit_up > 0 ? dmi_exit_up : 0)
+dmi_exit_minusDM = na(dmi_exit_down) ? na : (dmi_exit_down > dmi_exit_up and dmi_exit_down > 0 ? dmi_exit_down : 0)
+dmi_exit_trur    = rma(tr, dmi_exit_len)
+dmi_exit_plus    = fixnan(100 * rma(dmi_exit_plusDM, dmi_exit_len) / dmi_exit_trur)
+dmi_exit_minus   = fixnan(100 * rma(dmi_exit_minusDM, dmi_exit_len) / dmi_exit_trur)
+dmi_exit_sum     = dmi_exit_plus + dmi_exit_minus
+dmi_exit_adx     = 100 * rma(abs(dmi_exit_plus - dmi_exit_minus) / (dmi_exit_sum == 0 ? 1 : dmi_exit_sum), dmi_exit_adxl)
+
+//Conditions For Bar Colors
+dmi_exit_s1 = dmi_exit_plus > dmi_exit_minus
+dmi_exit_s2 = dmi_exit_minus > dmi_exit_plus
+dmi_exit_s3 = dmi_exit_plus == dmi_exit_minus
+dmi_exit_s4 = dmi_exit_adx < 20
+dmi_exit_s5 = dmi_exit_plus > 30
+dmi_exit_s6 = dmi_exit_minus > 30
+dmi_exit_s7 = dmi_exit_plus < 15
+dmi_exit_s8 = dmi_exit_minus < 15
+
+//ADX Time Frames
+dmi_exit_ADXMin5    = security(syminfo.tickerid, "5", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXMin15   = security(syminfo.tickerid, "15", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXMin30   = security(syminfo.tickerid, "30", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXMin60   = security(syminfo.tickerid, "60", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXMin240  = security(syminfo.tickerid, "240", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXDaily   = security(syminfo.tickerid, "D", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXWeekly  = security(syminfo.tickerid, "W", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+dmi_exit_ADXMonthly = security(syminfo.tickerid, "M", dmi_exit_adx, lookahead=barmerge.lookahead_on)
+
+//D+ Time Frames
+dmi_exit_PlusMin5    = security(syminfo.tickerid, "5", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusMin15   = security(syminfo.tickerid, "15", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusMin30   = security(syminfo.tickerid, "30", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusMin60   = security(syminfo.tickerid, "60", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusMin240  = security(syminfo.tickerid, "240", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusDaily   = security(syminfo.tickerid, "D", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusWeekly  = security(syminfo.tickerid, "W", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+dmi_exit_PlusMonthly = security(syminfo.tickerid, "M", dmi_exit_plus, lookahead=barmerge.lookahead_on)
+
+//D- Time Frames
+dmi_exit_MinusMin5    = security(syminfo.tickerid, "5", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusMin15   = security(syminfo.tickerid, "15", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusMin30   = security(syminfo.tickerid, "30", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusMin60   = security(syminfo.tickerid, "60", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusMin240  = security(syminfo.tickerid, "240", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusDaily   = security(syminfo.tickerid, "D", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusWeekly  = security(syminfo.tickerid, "W", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+dmi_exit_MinusMonthly = security(syminfo.tickerid, "M", dmi_exit_minus, lookahead=barmerge.lookahead_on)
+
+//Time Frame Conditions
+dmi_exit_Min5    = dmi_exit_ADXMin5 <= 20 ? yellow : dmi_exit_MinusMin5 > dmi_exit_PlusMin5 and dmi_exit_MinusMin5 > 30 ? brightred : dmi_exit_MinusMin5 > dmi_exit_PlusMin5 and dmi_exit_MinusMin5 < 15 ? yellred : dmi_exit_MinusMin5 > dmi_exit_PlusMin5 ? red : dmi_exit_PlusMin5 > dmi_exit_MinusMin5 and dmi_exit_PlusMin5 > 30 ? lime : dmi_exit_PlusMin5 > dmi_exit_MinusMin5 and dmi_exit_PlusMin5 < 15 ? yellgreen : dmi_exit_PlusMin5 > dmi_exit_MinusMin5 ? green : white
+dmi_exit_Min15   = dmi_exit_ADXMin15 <= 20 ? yellow : dmi_exit_MinusMin15 > dmi_exit_PlusMin15 and dmi_exit_MinusMin15 > 30 ? brightred : dmi_exit_MinusMin15 > dmi_exit_PlusMin15 and dmi_exit_MinusMin15 < 15 ? yellred : dmi_exit_MinusMin15 > dmi_exit_PlusMin15 ? red : dmi_exit_PlusMin15 > dmi_exit_MinusMin15 and dmi_exit_PlusMin15 > 30 ? lime : dmi_exit_PlusMin15 > dmi_exit_MinusMin15 and dmi_exit_PlusMin15 < 15 ? yellgreen : dmi_exit_PlusMin15 > dmi_exit_MinusMin15 ? green : white
+dmi_exit_Min30   = dmi_exit_ADXMin30 <= 20 ? yellow : dmi_exit_MinusMin30 > dmi_exit_PlusMin30 and dmi_exit_MinusMin30 > 30 ? brightred : dmi_exit_MinusMin30 > dmi_exit_PlusMin30 and dmi_exit_MinusMin30 < 15 ? yellred : dmi_exit_MinusMin30 > dmi_exit_PlusMin30 ? red : dmi_exit_PlusMin30 > dmi_exit_MinusMin30 and dmi_exit_PlusMin30 > 30 ? lime : dmi_exit_PlusMin30 > dmi_exit_MinusMin30 and dmi_exit_PlusMin30 < 15 ? yellgreen : dmi_exit_PlusMin30 > dmi_exit_MinusMin30 ? green : white
+dmi_exit_Min60   = dmi_exit_ADXMin60 <= 20 ? yellow : dmi_exit_MinusMin60 > dmi_exit_PlusMin60 and dmi_exit_MinusMin60 > 30 ? brightred : dmi_exit_MinusMin60 > dmi_exit_PlusMin60 and dmi_exit_MinusMin60 < 15 ? yellred : dmi_exit_MinusMin60 > dmi_exit_PlusMin60 ? red : dmi_exit_PlusMin60 > dmi_exit_MinusMin60 and dmi_exit_PlusMin60 > 30 ? lime : dmi_exit_PlusMin60 > dmi_exit_MinusMin60 and dmi_exit_PlusMin60 < 15 ? yellgreen : dmi_exit_PlusMin60 > dmi_exit_MinusMin60 ? green : white
+dmi_exit_Min240  = dmi_exit_ADXMin240 <= 20 ? yellow : dmi_exit_MinusMin240 > dmi_exit_PlusMin240 and dmi_exit_MinusMin240 > 30 ? brightred : dmi_exit_MinusMin240 > dmi_exit_PlusMin240 and dmi_exit_MinusMin240 < 15 ? yellred : dmi_exit_MinusMin240 > dmi_exit_PlusMin240 ? red : dmi_exit_PlusMin240 > dmi_exit_MinusMin240 and dmi_exit_PlusMin240 > 30 ? lime : dmi_exit_PlusMin240 > dmi_exit_MinusMin240 and dmi_exit_PlusMin240 < 15 ? yellgreen : dmi_exit_PlusMin240 > dmi_exit_MinusMin240 ? green : white
+dmi_exit_Daily   = dmi_exit_ADXDaily <= 20 ? yellow : dmi_exit_MinusDaily > dmi_exit_PlusDaily and dmi_exit_MinusDaily > 30 ? brightred : dmi_exit_MinusDaily > dmi_exit_PlusDaily and dmi_exit_MinusDaily < 15 ? yellred : dmi_exit_MinusDaily > dmi_exit_PlusDaily ? red : dmi_exit_PlusDaily > dmi_exit_MinusDaily and dmi_exit_PlusDaily > 30 ? lime : dmi_exit_PlusDaily > dmi_exit_MinusDaily and dmi_exit_PlusDaily < 15 ? yellgreen : dmi_exit_PlusDaily > dmi_exit_MinusDaily ? green : white
+dmi_exit_Weekly  = dmi_exit_ADXWeekly <= 20 ? yellow : dmi_exit_MinusWeekly > dmi_exit_PlusWeekly and dmi_exit_MinusWeekly > 30 ? brightred : dmi_exit_MinusWeekly > dmi_exit_PlusWeekly and dmi_exit_MinusWeekly < 15 ? yellred : dmi_exit_MinusWeekly > dmi_exit_PlusWeekly ? red : dmi_exit_PlusWeekly > dmi_exit_MinusWeekly and dmi_exit_PlusWeekly > 30 ? lime : dmi_exit_PlusWeekly > dmi_exit_MinusWeekly and dmi_exit_PlusWeekly < 15 ? yellgreen : dmi_exit_PlusWeekly > dmi_exit_MinusWeekly ? green : white
+dmi_exit_Monthly = dmi_exit_ADXMonthly <= 20 ? yellow : dmi_exit_MinusMonthly > dmi_exit_PlusMonthly and dmi_exit_MinusMonthly > 30 ? brightred : dmi_exit_MinusMonthly > dmi_exit_PlusMonthly and dmi_exit_MinusMonthly < 15 ? yellred : dmi_exit_MinusMonthly > dmi_exit_PlusMonthly ? red : dmi_exit_PlusMonthly > dmi_exit_MinusMonthly and dmi_exit_PlusMonthly > 30 ? lime : dmi_exit_PlusMonthly > dmi_exit_MinusMonthly and dmi_exit_PlusMonthly < 15 ? yellgreen : dmi_exit_PlusMonthly > dmi_exit_MinusMonthly ? green : white
+
+dmi_exit_pnlTextColor = color.black
+dmi_exit_pnlColor5    = dmi_exit_Min5
+dmi_exit_pnlColor15   = dmi_exit_Min15
+dmi_exit_pnlColor30   = dmi_exit_Min30
+dmi_exit_pnlColor60   = dmi_exit_Min60
+dmi_exit_pnlColor240  = dmi_exit_Min240
+dmi_exit_DpnlColor    = dmi_exit_Daily
+dmi_exit_WpnlColor    = dmi_exit_Weekly
+dmi_exit_MpnlColor    = dmi_exit_Monthly
+
+//Bar Size Detection
+int dmi_exit_barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+//ATR
+dmi_exit_atr = rma(tr(true), 10)
+
+//Coordinates
+int   dmi_exit_xOffset    = dmi_exit_start
+
+float dmi_exit_lapos_yM   = highest(550)
+float dmi_exit_lapos_yW   = dmi_exit_lapos_yM - dmi_exit_atr
+float dmi_exit_lapos_yD   = dmi_exit_lapos_yW - dmi_exit_atr
+float dmi_exit_lapos_y240 = dmi_exit_lapos_yD - dmi_exit_atr
+float dmi_exit_lapos_y60  = dmi_exit_lapos_y240 - dmi_exit_atr
+float dmi_exit_lapos_y30  = dmi_exit_lapos_y60 - dmi_exit_atr
+float dmi_exit_lapos_y15  = dmi_exit_lapos_y30 - dmi_exit_atr
+float dmi_exit_lapos_y5   = dmi_exit_lapos_y15 - dmi_exit_atr
+
+int   dmi_exit_lapos_x5   = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_x15  = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_x30  = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_x60  = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_x240 = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_xD   = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_xW   = timenow + dmi_exit_barSize*dmi_exit_xOffset
+int   dmi_exit_lapos_xM   = timenow + dmi_exit_barSize*dmi_exit_xOffset
+
+//{High and Low Reversal Arrow Code}
+
+//High and Low Reversal Arrow Formulas
+dmi_exit_h   = highest(high,dmi_exit_lkbk)
+dmi_exit_l   = lowest(low,dmi_exit_lkbk)
+dmi_exit_nh  = dmi_exit_h == dmi_exit_h[1] and dmi_exit_h[1] > dmi_exit_h[2]
+dmi_exit_nl  = dmi_exit_l == dmi_exit_l[1] and dmi_exit_l[1] < dmi_exit_l[2]
+dmi_exit_hi  = dmi_exit_nl and high > high[1]
+dmi_exit_lo  = dmi_exit_nh and low < low[1]
+dmi_exit_hi1 = barssince(dmi_exit_hi) > 2 and barssince(dmi_exit_hi) < 10 and dmi_exit_hi
+dmi_exit_lo1 = barssince(dmi_exit_lo) > 2 and barssince(dmi_exit_lo) < 10 and dmi_exit_lo
+dmi_exit_hi2 = dmi_exit_hi[1] or dmi_exit_hi[2] or dmi_exit_hi[3] ? (dmi_exit_hi[1] ? na : dmi_exit_nl[1] and high > high[2]) : na
+dmi_exit_lo2 = dmi_exit_lo[1] or dmi_exit_lo[2] or dmi_exit_lo[3] ? (dmi_exit_lo[1] ? na : dmi_exit_nh[1] and low < low[2]) : na
+dmi_exit_hi3 = dmi_exit_hi[1] or dmi_exit_hi[2] or dmi_exit_hi[3] or dmi_exit_hi2[1] or dmi_exit_hi2[2] or dmi_exit_hi2[3] ? (dmi_exit_hi1[2] or dmi_exit_hi2[1] ? na : dmi_exit_nl[2] and high > high[3]) : na
+dmi_exit_lo3 = dmi_exit_lo[1] or dmi_exit_lo[2] or dmi_exit_lo[3] or dmi_exit_lo2[1] or dmi_exit_lo2[2] or dmi_exit_lo2[3] ? (dmi_exit_lo1[2] or dmi_exit_lo2[1] ? na : dmi_exit_nh[2] and low < low[3]) : na
+dmi_exit_hi4 = dmi_exit_hi[1] or dmi_exit_hi[2] or dmi_exit_hi[3] or dmi_exit_hi2[1] or dmi_exit_hi2[2] or dmi_exit_hi2[3] or dmi_exit_hi3[1] or dmi_exit_hi3[2] or dmi_exit_hi3[3] ? (dmi_exit_hi1[3] or dmi_exit_hi2[2] or dmi_exit_hi3[1] ? na : dmi_exit_nl[3] and high > high[4]) : na
+dmi_exit_lo4 = dmi_exit_lo[1] or dmi_exit_lo[2] or dmi_exit_lo[3] or dmi_exit_lo2[1] or dmi_exit_lo2[2] or dmi_exit_lo2[3] or dmi_exit_lo3[1] or dmi_exit_lo3[2] or dmi_exit_lo3[3] ? (dmi_exit_lo2[3] or dmi_exit_lo2[2] or dmi_exit_lo3[1] ? na : dmi_exit_nh[3] and low < low[4]) : na
+
+//{Plots}
+
+//Arrows
+plotshape(dmi_exit_plot and (dmi_exit_hi1 or dmi_exit_hi2 or dmi_exit_hi3 or dmi_exit_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2)
+plotshape(dmi_exit_plot and (dmi_exit_lo1 or dmi_exit_lo2 or dmi_exit_lo3 or dmi_exit_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2)
+
+//Volume Spike
+plotshape(dmi_exit_plot and dmi_exit_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike")
+//################### Moving Average #####################
+
+ma_show = input(true, title="Show Moving Averages")
+
+ma_src = close
+ma_1_res = input(title="1. Moving Average Resolution", type=input.resolution, defval='')
+ma_1_type = input(defval='EMA', title='1. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_1_len = input(8, title="1. Moving Average", type=input.integer)
+ma_1_col = color.red
+
+ma_2_res = input(title="2. Moving Average Resolution", type=input.resolution, defval='')
+ma_2_type = input(defval='EMA', title='2. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_2_len = input(13, title="2. Moving Average", type=input.integer)
+ma_2_col = color.orange
+
+ma_3_res = input(title="3. Moving Average Resolution", type=input.resolution, defval='')
+ma_3_type = input(defval='EMA', title='3. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_3_len = input(21, title="3. Moving Average", type=input.integer)
+ma_3_col = color.white
+
+ma_4_res = input(title="4. Moving Average Resolution", type=input.resolution, defval='')
+ma_4_type = input(defval='EMA', title='4. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_4_len = input(34, title="4. Moving Average", type=input.integer)
+ma_4_col = color.yellow
+
+ma_5_res = input(title="5. Moving Average Resolution", type=input.resolution, defval='')
+ma_5_type = input(defval='EMA', title='5. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_5_len = input(55, title="5. Moving Average", type=input.integer)
+ma_5_col = color.blue
+
+ma_6_res = input(title="6. Moving Average Resolution", type=input.resolution, defval='')
+ma_6_type = input(defval='SMA', title='6. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_6_len = input(100, title="6. Moving Average", type=input.integer)
+ma_6_col = color.purple
+
+ma_7_res = input(title="7. Moving Average Resolution", type=input.resolution, defval='')
+ma_7_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_7_len = input(200, title="7. Moving Average", type=input.integer)
+ma_7_col = color.green
+
+ma_1 = calc_ma(ma_src, ma_1_len, ma_1_type, ma_1_res)
+ma_2 = calc_ma(ma_src, ma_2_len, ma_2_type, ma_2_res)
+ma_3 = calc_ma(ma_src, ma_3_len, ma_3_type, ma_3_res)
+ma_4 = calc_ma(ma_src, ma_4_len, ma_4_type, ma_4_res)
+ma_5 = calc_ma(ma_src, ma_5_len, ma_5_type, ma_5_res)
+ma_6 = calc_ma(ma_src, ma_6_len, ma_6_type, ma_6_res)
+ma_7 = calc_ma(ma_src, ma_7_len, ma_7_type, ma_7_res)
+
+plot(ma_show ? ma_1 : na, color=ma_1_col, linewidth=1, title="1. Moving Average", display = display.none)
+plot(ma_show ? ma_2 : na, color=ma_2_col, linewidth=1, title="2. Moving Average", display = display.none)
+plot(ma_show ? ma_3 : na, color=ma_3_col, linewidth=1, title="3. Moving Average", display = display.none)
+plot(ma_show ? ma_4 : na, color=ma_4_col, linewidth=1, title="4. Moving Average")
+plot(ma_show ? ma_5 : na, color=ma_5_col, linewidth=1, title="5. Moving Average")
+plot(ma_show ? ma_6 : na, color=ma_6_col, linewidth=1, title="6. Moving Average", display = display.none)
+plot(ma_show ? ma_7 : na, color=ma_7_col, linewidth=1, title="7. Moving Average", display = display.none)
+
+//########### Trend Conformation #############
+
+tc_useCurrentRes = input(false, title="Trend Confirmation Use Current Chart Resolution?")
+tc_resCustom = input(title="Trend Confirmation - Use Different Timeframe? Uncheck Box Above", type=input.resolution, defval="D")
+tc_useCurrentprice = true//input(true, title="Use Current Resolution price action for more detail and NO REPAINT! IF UNCHECKED, COLORS CAN/WILL REPAINT (!) and are only valid and final once the custom timeframe has closed!!!")
+tc_show_mfi=input(1, minval = 1, maxval = 3, title="Trend Confirmation Base indicator: 1= RSI, 2= MFI, 3= stoch")
+tc_src = close
+tc_base_len = 14 //input(14, minval=1, title="RSI/MFI/Stoch Length")
+tc_len=23//input(23, minval=1, title="Smoothing Length")
+tc_th1=70//input(70, minval=1, title="overbought")
+tc_th2=30//input(30, minval=1, title="oversold")
+tc_show_rsi=true//input(true, title="show RSI/MFI/Stoch line")
+tc_show_bg=false//input(false, title="show RSI/MFI/Stoch background color")
+//color_bars=true//input(true, title="color pricebars (deselecting 'borders' in the 'style' tab is recommended)")
+tc_color_base=7//input(7, minval = 1, maxval = 7, title="color bars based on: 1= histogram slope, 2=+/- histogram, 3=+/- rsi/mfi/stoch-line, 4= uptrend (buy bias), 5= downtrend (sell bias), 6= auto trend detection (ADX based), 7= trendline break (BETA)")
+tc_show_lines=true//input(true,title="show highs/lows trendlines (dotted lines are plotted in realtime, full lines with delay = lookback length")
+tc_show_cross=false//input(false,title="show trendline break crosses")
+
+tc_tllen_l=20//input(20,title="trendline lookback length - lows")
+tc_tllen_h=20//input(20,title="trendline lookback length - highs")
+
+tc_res = tc_useCurrentRes ? timeframe.period : tc_resCustom
+
+//timeframe conversion
+tc_base_res=timeframe.period=="1"?1:timeframe.period=="3"?3:timeframe.period=="5"?5:timeframe.period=="15"?15:timeframe.period=="30"?30:timeframe.period=="45"?45:timeframe.period=="60"?60:timeframe.period=="120"?120:timeframe.period=="180"?180:timeframe.period=="240"?240:timeframe.period=="D"?1440:timeframe.period=="W"?10080:timeframe.period=="M"?302400:na
+tc_custom_res=tc_resCustom=="1"?1:tc_resCustom=="3"?3:tc_resCustom=="5"?5:tc_resCustom=="15"?15:tc_resCustom=="30"?30:tc_resCustom=="45"?45:tc_resCustom=="60"?60:tc_resCustom=="120"?120:tc_resCustom=="180"?180:tc_resCustom=="D"?1440:tc_resCustom=="W"?10080:na
+tc_res_factor=tc_useCurrentRes?1:tc_base_res>tc_custom_res?1:round(tc_custom_res/tc_base_res)
+tc_trend_conf_len= tc_useCurrentRes? tc_base_len : tc_useCurrentprice? tc_base_len*tc_res_factor:tc_base_len
+
+//MFI calcutation
+tc_TypPrice = hlc3
+tc_upper_s = sum(volume * (change(tc_TypPrice) <= 0 ? 0 : tc_TypPrice), tc_len)
+tc_lower_s = sum(volume * (change(tc_TypPrice) >= 0 ? 0 : tc_TypPrice), tc_len)
+tc_mf = rsi(tc_upper_s, tc_lower_s)
+
+//stoch calculation
+tc_st = stoch(close,high,low,tc_len)
+
+//RSI/MFI/Stoch selection
+tc_rsi_base = tc_show_mfi==1?rsi(tc_src,tc_len):tc_show_mfi==2?tc_mf:tc_st
+
+//RSI output MTF
+tc_rsi = security(syminfo.tickerid, tc_useCurrentprice?timeframe.period:tc_res, tc_rsi_base)
+tc_rsi_MTF = security(syminfo.tickerid, tc_res, tc_rsi_base)
+tc_smooth_base=ema(tc_rsi_base,tc_len)
+tc_smooth = tc_useCurrentprice?ema(tc_rsi,tc_len):security(syminfo.tickerid, tc_res, tc_smooth_base)
+
+tc_Diff=tc_rsi-tc_smooth
+
+//alternative version MA definition
+//smooth2=ema(ema(Diff,res_factor),len2)
+
+//2nd version MA TEMA definition
+tc_sema1 = ema(tc_Diff,tc_res_factor)
+tc_sema2 = ema(tc_sema1, tc_len)
+tc_sema3 = ema(tc_sema2, tc_len)
+tc_smooth2= 3 * (tc_sema1 - tc_sema2) + tc_sema3
+
+tc_smooth_up=tc_smooth>=tc_smooth[1]?true:false
+tc_smooth2_up=tc_smooth2>=tc_smooth2[2]?true:false
+
+//ADX and DI trend calculation
+tc_TrueRange = max(max(high-low, abs(high-nz(close[1]))), abs(low-nz(close[1])))
+tc_DirectionalMovementPlus = high-nz(high[1]) > nz(low[1])-low ? max(high-nz(high[1]), 0): 0
+tc_DirectionalMovementMinus = nz(low[1])-low > high-nz(high[1]) ? max(nz(low[1])-low, 0): 0
+
+calc_DIPlus()=>
+    tc_base_DIPlus = float(na)
+    tc_SmoothedTrueRange=float(na)
+    tc_SmoothedTrueRange := nz(tc_SmoothedTrueRange[1]) - (nz(tc_SmoothedTrueRange[1])/tc_len) + tc_TrueRange
+    tc_SmoothedDirectionalMovementPlus=float(na)
+    tc_SmoothedDirectionalMovementPlus := nz(tc_SmoothedDirectionalMovementPlus[1]) - (nz(tc_SmoothedDirectionalMovementPlus[1])/tc_len) + tc_DirectionalMovementPlus
+    tc_base_DIPlus := tc_SmoothedDirectionalMovementPlus / tc_SmoothedTrueRange * 100
+    tc_base_DIPlus
+    
+calc_DIMinus()=>
+    tc_base_DIMinus = float(na)
+    tc_SmoothedTrueRange=float(na)
+    tc_SmoothedTrueRange := nz(tc_SmoothedTrueRange[1]) - (nz(tc_SmoothedTrueRange[1])/tc_len) + tc_TrueRange
+    tc_SmoothedDirectionalMovementMinus=float(na)
+    tc_SmoothedDirectionalMovementMinus := nz(tc_SmoothedDirectionalMovementMinus[1]) - (nz(tc_SmoothedDirectionalMovementMinus[1])/tc_len) + tc_DirectionalMovementMinus
+    tc_base_DIMinus := tc_SmoothedDirectionalMovementMinus / tc_SmoothedTrueRange * 100
+    tc_base_DIMinus
+
+//ADX output MTF
+tc_HTF=tc_base_res>tc_custom_res?true:false
+tc_DIPlus = security(syminfo.tickerid, tc_useCurrentprice?timeframe.period:tc_res, calc_DIPlus())
+tc_DIPlusS = security(syminfo.tickerid, tc_res, calc_DIPlus())
+tc_DIMinus = security(syminfo.tickerid, tc_useCurrentprice?timeframe.period:tc_res, calc_DIMinus())
+tc_DIMinusS = security(syminfo.tickerid, tc_res, calc_DIMinus())
+
+tc_DIdiff = tc_HTF?(tc_DIPlus - tc_DIMinus):(tc_DIPlusS - tc_DIMinusS)
+tc_DIcolor = tc_DIdiff<0?color.red:tc_DIdiff>0?color.green:color.yellow
+tc_DX = tc_HTF?(abs(tc_DIPlus-tc_DIMinus) / (tc_DIPlus+tc_DIMinus)*100):(abs(tc_DIPlusS-tc_DIMinusS) / (tc_DIPlusS+tc_DIMinusS)*100)
+tc_ADX = sma(tc_DX, tc_len)
+
+tc_momentprod=tc_useCurrentprice and tc_HTF?tc_DIdiff*tc_ADX*tc_res_factor/2:tc_DIdiff*tc_ADX
+tc_smooth_ADX=ema(tc_momentprod,tc_len) 
+tc_strong_trend=((tc_DIdiff<0 and tc_smooth_ADX<=tc_smooth_ADX[1]) or (tc_DIdiff>0 and tc_smooth_ADX>=tc_smooth_ADX[1]))?true:false
+
+//color definition
+tc_emacolor=tc_Diff>=0?(tc_smooth2_up?color.new(color.green,0):color.new(color.green,50)):(tc_smooth2_up?color.maroon:color.red)
+tc_smooth2color=tc_smooth2>=tc_smooth2[2]?color.green:color.red
+tc_bcol= tc_rsi_MTF<tc_th2?color.new(color.red,75):tc_rsi_MTF>tc_th1?color.new(color.lime,85):tc_rsi>50?color.new(color.green,90):color.new(color.maroon,85)
+tc_rsicol=tc_bcol==color.new(color.red,75)?color.red:tc_bcol==color.new(color.maroon,85)?color.new(color.maroon,20):tc_bcol==color.new(color.lime,85)?color.lime:tc_bcol==color.new(color.green,90)?color.new(color.green,30):na
+//plot(Diff, title="RSI - histo", style=plot.style_histogram, color=emacolor,linewidth=2,transp=0)
+//plot(smooth2,title="RSI - ma", color=smooth2color,linewidth=3,transp=20)
+//plot(show_rsi?rsi-50:na,linewidth=2,color=rsicol,transp=0)
+//bgcolor(title="RSI overbought/oversold",color=show_bg?bcol:na)
+
+//trendline pivots
+tc_last_high1=pivothigh(tc_Diff,tc_tllen_h,tc_tllen_h)
+tc_last_low1=pivotlow(tc_Diff,tc_tllen_l,tc_tllen_l)
+tc_color_high=highest(tc_Diff,2*tc_tllen_h)<highest(tc_Diff,5*tc_tllen_h)?color.fuchsia:na
+tc_color_low=lowest(tc_Diff,2*tc_tllen_l)>lowest(tc_Diff,5*tc_tllen_l)?color.lime:na
+tc_barshigh=barssince(tc_Diff >= tc_last_high1)
+tc_barslow=barssince(tc_Diff <= tc_last_low1)
+
+//last high-low point
+tc_lh1=highest(tc_Diff,tc_tllen_h)
+tc_lh2=highest(tc_Diff,6*tc_tllen_h)
+tc_lh3=highest(tc_Diff,10*tc_tllen_h)
+//indication of possible reversal or H/S pattern
+tc_high_falling=tc_lh1<tc_lh2 and tc_lh2<tc_lh3?true:false
+
+tc_last_high1_period=barssince(tc_Diff >= tc_lh1)
+tc_last_high2_period=barssince(tc_Diff >= tc_lh2)
+
+tc_ll1=lowest(tc_Diff,tc_tllen_l)
+tc_ll2=lowest(tc_Diff,5*tc_tllen_l)
+tc_ll3=lowest(tc_Diff,12*tc_tllen_l)
+//indication of possible reversal or inv. H/S pattern
+tc_low_rising=tc_ll1>tc_ll2 and tc_ll2>tc_ll3?true:false
+
+//trendline plot
+//plot(show_lines?last_high1:na,title="trendline high",color=color_high,offset=-1*tllen_h,transp=0)
+//plot(show_lines?last_low1:na,title="trendline low",color=color_low,offset=-1*tllen_l,transp=0)
+
+//ext high trendlines
+tc_show_last=10000
+tc_Ph1y=fixnan(tc_last_high1)
+tc_Ph2y=float(na)
+tc_Ph2y:=change(tc_Ph1y)!=0?tc_Ph1y[1]: (nz(tc_Ph2y[1]) == 0 ? na : tc_Ph2y[1])
+tc_Ph1x = 0
+tc_Ph2x=float(na)
+tc_val1 = barssince(change(nz(tc_Ph1y[1]))!=0)
+tc_Ph2x := change(tc_Ph1y)!=0? tc_val1 :(nz(tc_Ph2x[1]) == 0 ? na : tc_Ph2x[1])
+tc_Ph2xbis=tc_val1
+// point slope
+tc_mh=float(na)
+tc_mh :=change(tc_Ph1y)!=0? ((tc_Ph1y-tc_Ph2y) / (tc_Ph2x)): (nz(tc_mh[1]) == 0 ? na : tc_mh[1])
+// plot range
+tc_ext_high_tline = tc_Ph1y + tc_mh*(tc_Ph2xbis)
+tc_ext_high_tline_RT = tc_Ph1y + tc_mh*(tc_Ph2xbis+tc_tllen_h)
+tc_color_ext_tl_high=tc_mh<=0?color.fuchsia:na
+//plot(show_lines?mh<=0 and ext_high_tline_RT[tllen_h]!=ext_high_tline?ext_high_tline:na:na, title="ext trendline high", color=color_ext_tl_high, linewidth=1, style=plot.style_linebr, transp=40,offset=-tllen_h,show_last=_show_last)
+//plot(show_lines?mh<=0?ext_high_tline_RT:na:na, title="ext trendline high RT", color=color_ext_tl_high, linewidth=1, style=plot.style_circles, transp=40,show_last=_show_last)
+
+//ext low trendlines
+tc_Pl1y=fixnan(tc_last_low1)
+tc_Pl2y=float(na)
+tc_Pl2y:=change(tc_Pl1y)!=0?tc_Pl1y[1]:(nz(tc_Pl2y[1]) == 0 ? na : tc_Pl2y[1])
+tc_Pl1x = 0
+tc_Pl2x=float(na)
+tc_val2 = barssince(change(nz(tc_Pl1y[1]))!=0)
+tc_Pl2x := change(tc_Pl1y)!=0?tc_val2:(nz(tc_Pl2x[1]) == 0 ? na : tc_Pl2x[1])
+tc_Pl2xbis=barssince(change(tc_val2)!=0)
+// point slope
+tc_ml=float(na)
+tc_ml :=change(tc_Pl1y)!=0? ((tc_Pl1y-tc_Pl2y) / (tc_Pl2x)): (nz(tc_ml[1]) == 0 ? na : tc_ml[1])
+// plot range
+tc_ext_low_tline = tc_Pl1y + tc_ml*(tc_Pl2xbis)
+tc_ext_low_tline_RT = tc_Pl1y + tc_ml*(tc_Pl2xbis+tc_tllen_l)
+tc_color_ext_tl_low=tc_ml>=0?color.lime:na
+//plot(show_lines?ml>=0 and ext_low_tline_RT[tllen_l]!=ext_low_tline?ext_low_tline:na:na, title="ext trendline low", color=color_ext_tl_low, linewidth=1, style=plot.style_linebr, transp=40,offset=-tllen_l,show_last=_show_last)
+//plot(show_lines?ml>=0?ext_low_tline_RT:na:na, title="ext trendline low RT", color=color_ext_tl_low, linewidth=1, style=plot.style_circles, transp=40,show_last=_show_last)
+
+//detect trendline breaks
+tc_avg_Diff=ema(tc_Diff,tc_res_factor)
+tc_val3 = crossover(tc_avg_Diff,tc_ext_high_tline_RT)
+tc_break_tl_high=tc_mh<=0?tc_val3:false
+tc_val4 = crossunder(tc_avg_Diff,tc_ext_low_tline_RT)
+tc_break_tl_low=tc_ml>=0?tc_val4:false
+tc_cross_color=tc_break_tl_high?color.lime:tc_break_tl_low?color.fuchsia:color.yellow
+tc_above_tl_high=tc_avg_Diff>=tc_ext_high_tline?true:false
+tc_below_tl_low=tc_avg_Diff<=tc_ext_low_tline?true:false
+
+//mark trendline crosses
+tc_YPosition = tc_break_tl_high?tc_ext_high_tline_RT:tc_break_tl_low?tc_ext_low_tline_RT:na
+//plotshape(show_lines and show_cross and break_tl_high? YPosition : na,style=shape.triangleup, location=location.absolute,size=size.tiny, color=cross_color,transp=0)
+//plotshape(show_lines and show_cross and break_tl_low? YPosition : na,style=shape.triangledown, location=location.absolute,size=size.tiny, color=cross_color,transp=0)
+
+//final coloring
+tc_val5 = ema(tc_Diff,tc_res_factor)
+tc_trend_color=tc_strong_trend?tc_DIcolor:(tc_smooth2>=0 or tc_val5>=0?(tc_high_falling?color.red:color.green):(tc_low_rising?color.green:color.red))
+tc_trendline_color=tc_Diff<tc_ext_low_tline_RT?tc_Diff>0?tc_smooth2color:color.red:tc_Diff>tc_ext_high_tline_RT?tc_Diff<0?tc_smooth2color:color.green:(tc_val5>=0?color.green:color.red)
+tc_barcolor_ref=tc_color_base==1?tc_smooth2color:tc_color_base==2?(tc_val5>=0?color.green:color.red):tc_color_base==3?((tc_useCurrentprice?ema(tc_rsi,tc_res_factor):tc_rsi)>50?color.green:color.red):tc_color_base==4?(tc_smooth2>=0 or tc_val5>=0?color.green:(tc_low_rising?tc_smooth2color:color.red)):tc_color_base==5?(tc_smooth2<=0 or tc_val5<=0?color.red:(tc_high_falling?tc_smooth2color:color.green)):tc_color_base==6?tc_trend_color:tc_color_base==7?tc_trendline_color:na
+tc_barc=tc_barcolor_ref==color.green?color.new(color.lime,30):tc_barcolor_ref==color.red?color.new(color.red,20):color.yellow
+barcolor(trend_conf_ebc?tc_barc:na)
+//baseline_col=strong_trend?DIcolor:na
+//plot(0,color=baseline_col,transp=0,linewidth=2)
