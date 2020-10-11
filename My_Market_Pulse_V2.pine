@@ -26,11 +26,14 @@ white     = color.white
 
 dmi_bars_plot = input(false, title="Plot DMI")
 dmi_exit_plot = input(false, title="Plot DMI Exit") 
-dmi_bars_ebc = input(false, title="Color Bars Based on DMI")
+tc_plot = input(true, title="Plot Trend Confirmation") 
 coral_plot =input(false, title="Plot Coral")
+
+dmi_bars_ebc = input(false, title="Color Bars Based on DMI")
 coral_ebc=input(false, title="Color Bars Based on Coral Indicator")
-tts_ebc = input(false, title="Color Bars Based on Trend Trade System") 
-trend_conf_ebc = input(false, title="Color Bars Based on Trend Confirmation System") 
+tts_ebc = input(true, title="Color Bars Based on Trend Trade System") 
+tc_ebc = input(false, title="Color Bars Based on Trend Confirmation System") 
+
 
 // ############# Market Pulse ////////
 pulse_show = input(false, title="Show Market Pulse")
@@ -53,7 +56,7 @@ pulse_bearish = pulse_vwma8 < pulse_vwma21 and pulse_vwma21 < pulse_vwma34 ? 1 :
 pulse_distribution = not pulse_bullish and not pulse_bearish ? 1 : 0
 
 pulse_asd_c = pulse_bearish and close <= pulse_asd ? color.red : pulse_bullish and close >= pulse_asd ? color.green : color.gray
-plot(pulse_show ? pulse_asd : na, title="Variable Moving Average", color=pulse_asd_c, transp = 0, style = plot.style_line, linewidth=2)
+plot(pulse_show ? pulse_asd : na, title="Variable Moving Average", color=pulse_asd_c, transp = 0, style = plot.style_line, linewidth=2, editable=false)
 
 //################### Simple Breakout #####################
 smpl_break_out_show = input(false, title="Show Simple Breakout")
@@ -74,8 +77,8 @@ smpl_break_out_stosloOS = 20
 smpl_break_out_bullish_signal = (close > smpl_break_out_sma10 and close[1] <= smpl_break_out_sma10[1]) and (close > smpl_break_out_sma100) and smpl_break_out_stosloK < smpl_break_out_stosloOB and smpl_break_out_stoSloD < smpl_break_out_stosloOB and smpl_break_out_MH > 0 ? 1 : 0
 smpl_break_out_bearish_signal = (close < smpl_break_out_sma10 and close[1] >= smpl_break_out_sma10[1]) and (close < smpl_break_out_sma100) and smpl_break_out_stosloK > smpl_break_out_stosloOS and smpl_break_out_stoSloD > smpl_break_out_stosloOS and smpl_break_out_MH < 0 ? 1 : 0
 
-plotshape(smpl_break_out_show and smpl_break_out_bullish_signal, style=shape.triangleup, location=location.belowbar, color=lime, transp=0, size=size.tiny)
-plotshape(smpl_break_out_show and smpl_break_out_bearish_signal, style=shape.triangledown, location=location.abovebar, color=brightred, transp=0, size=size.tiny)
+plotshape(smpl_break_out_show and smpl_break_out_bullish_signal, style=shape.triangleup, location=location.belowbar, color=lime, transp=0, size=size.tiny, editable=false)
+plotshape(smpl_break_out_show and smpl_break_out_bearish_signal, style=shape.triangledown, location=location.abovebar, color=brightred, transp=0, size=size.tiny, editable=false)
 
 //################### color bars based on dmi #####################
 dmi_bars_src = close
@@ -108,8 +111,8 @@ dmi_bars_BearishZone = dmi_bars_Plus < dmi_bars_Minus and dmi_bars_ADX >= dmi_ba
 dmi_bars_NeutralZone = not dmi_bars_BullishZone and not dmi_bars_BearishZone ? true : false
 
 dmi_bars_color = dmi_bars_NeutralZone ? color.yellow : dmi_bars_BullishZone ? color.green : dmi_bars_BearishZone ? color.red : na
-barcolor(dmi_bars_ebc ? dmi_bars_color : na)
-plotshape(dmi_bars_plot and not dmi_bars_ebc ? 1 : na,color=dmi_bars_color, location=location.abovebar, style=shape.circle)
+barcolor(dmi_bars_ebc ? dmi_bars_color : na, editable=false)
+plotshape(dmi_bars_plot and not dmi_bars_ebc ? 1 : na,color=dmi_bars_color, location=location.belowbar, style=shape.circle, editable=false)
 
 //################ Bollinger Bands ##################
 bb_src = close
@@ -125,7 +128,7 @@ bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
 bb_p1 = plot(bb_show ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
 plot(bb_show ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
 bb_p2 = plot(bb_show ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
-fill(bb_p1, bb_p2, color=color.green, title="Background", transp=90)
+fill(bb_p1, bb_p2, color=color.green, title="Background", transp=90, editable=false)
 
 //########################### Super Trend ########################################
 
@@ -152,7 +155,7 @@ plot(super_trend_show ? super_trend_tsl : na, color = super_trend_line_color , s
 
 //###################EMA Strategy#####################
 
-ema_strategy_show = input(true, title="Show Exponential Moving Averages Strategy")
+ema_strategy_show = input(false, title="Show Exponential Moving Averages Strategy")
 ema_strategy_src = close
 ema_strategy_8 = matype(ema_strategy_src, 8, 2, "")
 ema_strategy_13 = matype(ema_strategy_src, 13, 2, "")
@@ -175,20 +178,20 @@ tts_up = rma(max(change(tts_src), 0), tts_rsi_len)
 tts_down = rma(-min(change(tts_src), 0), tts_rsi_len)
 tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
 
-plot(tts_vwap_val, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line", display = display.none)
+plot(tts_vwap_val, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
 plot(tts_ema_val, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
 
 tts_cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond1 ? lime : na, editable=false) 
+barcolor(tts_ebc and tts_cond1 ? color.lime : na, editable=false) 
 
 tts_cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond2 ? brightred : na, editable=false) 
+barcolor(tts_ebc and tts_cond2 ? color.red : na, editable=false) 
 
 tts_cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond3 ? red : na, editable=false)
+barcolor(tts_ebc and tts_cond3 ? color.orange : na, editable=false)
 
 tts_cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond4 ? green : na, editable=false)
+barcolor(tts_ebc and tts_cond4 ? color.teal : na, editable=false)
 
 tts_cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
 barcolor(tts_ebc and tts_cond5 ? color.white : na, editable=false)
@@ -230,8 +233,8 @@ bfr = -coral_cd*coral_cd*coral_cd*coral_i6 + coral_c3*(coral_i5) + coral_c4*(cor
 //bfrC = bfr - nz(bfr[1]) > syminfo.mintick ? green : bfr - nz(bfr[1]) < syminfo.mintick ? color.red : color.blue
 coral_bfrC = bfr > nz(bfr[1]) ? lime : bfr < nz(bfr[1])  ? brightred : color.blue
 coral_tc=coral_ebc? na :coral_bfrC
-plot(coral_plot ? bfr : na, title="Trend", linewidth=3, style=plot.style_circles, color=coral_tc)
-barcolor(coral_plot and coral_ebc ? coral_bfrC : na)
+plot(coral_plot ? bfr : na, title="Trend", linewidth=3, style=plot.style_circles, color=coral_tc, editable=false)
+barcolor(coral_plot and coral_ebc ? coral_bfrC : na, editable=false)
 
 //############### DMI Exit Signal ######
 int   dmi_exit_len        = input(14, title="DMI Length")
@@ -370,70 +373,15 @@ dmi_exit_lo4 = dmi_exit_lo[1] or dmi_exit_lo[2] or dmi_exit_lo[3] or dmi_exit_lo
 //{Plots}
 
 //Arrows
-plotshape(dmi_exit_plot and (dmi_exit_hi1 or dmi_exit_hi2 or dmi_exit_hi3 or dmi_exit_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2)
-plotshape(dmi_exit_plot and (dmi_exit_lo1 or dmi_exit_lo2 or dmi_exit_lo3 or dmi_exit_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2)
+plotshape(dmi_exit_plot and (dmi_exit_hi1 or dmi_exit_hi2 or dmi_exit_hi3 or dmi_exit_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2, editable=false)
+plotshape(dmi_exit_plot and (dmi_exit_lo1 or dmi_exit_lo2 or dmi_exit_lo3 or dmi_exit_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2, editable=false)
 
 //Volume Spike
-plotshape(dmi_exit_plot and dmi_exit_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike")
-//################### Moving Average #####################
-
-ma_show = input(true, title="Show Moving Averages")
-
-ma_src = close
-ma_1_res = input(title="1. Moving Average Resolution", type=input.resolution, defval='')
-ma_1_type = input(defval='EMA', title='1. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_1_len = input(8, title="1. Moving Average", type=input.integer)
-ma_1_col = color.red
-
-ma_2_res = input(title="2. Moving Average Resolution", type=input.resolution, defval='')
-ma_2_type = input(defval='EMA', title='2. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_2_len = input(13, title="2. Moving Average", type=input.integer)
-ma_2_col = color.orange
-
-ma_3_res = input(title="3. Moving Average Resolution", type=input.resolution, defval='')
-ma_3_type = input(defval='EMA', title='3. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_3_len = input(21, title="3. Moving Average", type=input.integer)
-ma_3_col = color.white
-
-ma_4_res = input(title="4. Moving Average Resolution", type=input.resolution, defval='')
-ma_4_type = input(defval='EMA', title='4. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_4_len = input(34, title="4. Moving Average", type=input.integer)
-ma_4_col = color.yellow
-
-ma_5_res = input(title="5. Moving Average Resolution", type=input.resolution, defval='')
-ma_5_type = input(defval='EMA', title='5. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_5_len = input(55, title="5. Moving Average", type=input.integer)
-ma_5_col = color.blue
-
-ma_6_res = input(title="6. Moving Average Resolution", type=input.resolution, defval='')
-ma_6_type = input(defval='SMA', title='6. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_6_len = input(100, title="6. Moving Average", type=input.integer)
-ma_6_col = color.purple
-
-ma_7_res = input(title="7. Moving Average Resolution", type=input.resolution, defval='')
-ma_7_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
-ma_7_len = input(200, title="7. Moving Average", type=input.integer)
-ma_7_col = color.green
-
-ma_1 = calc_ma(ma_src, ma_1_len, ma_1_type, ma_1_res)
-ma_2 = calc_ma(ma_src, ma_2_len, ma_2_type, ma_2_res)
-ma_3 = calc_ma(ma_src, ma_3_len, ma_3_type, ma_3_res)
-ma_4 = calc_ma(ma_src, ma_4_len, ma_4_type, ma_4_res)
-ma_5 = calc_ma(ma_src, ma_5_len, ma_5_type, ma_5_res)
-ma_6 = calc_ma(ma_src, ma_6_len, ma_6_type, ma_6_res)
-ma_7 = calc_ma(ma_src, ma_7_len, ma_7_type, ma_7_res)
-
-plot(ma_show ? ma_1 : na, color=ma_1_col, linewidth=1, title="1. Moving Average", display = display.none)
-plot(ma_show ? ma_2 : na, color=ma_2_col, linewidth=1, title="2. Moving Average", display = display.none)
-plot(ma_show ? ma_3 : na, color=ma_3_col, linewidth=1, title="3. Moving Average", display = display.none)
-plot(ma_show ? ma_4 : na, color=ma_4_col, linewidth=1, title="4. Moving Average")
-plot(ma_show ? ma_5 : na, color=ma_5_col, linewidth=1, title="5. Moving Average")
-plot(ma_show ? ma_6 : na, color=ma_6_col, linewidth=1, title="6. Moving Average", display = display.none)
-plot(ma_show ? ma_7 : na, color=ma_7_col, linewidth=1, title="7. Moving Average", display = display.none)
+plotshape(dmi_exit_plot and dmi_exit_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike", editable=false)
 
 //########### Trend Conformation #############
 
-tc_useCurrentRes = input(false, title="Trend Confirmation Use Current Chart Resolution?")
+tc_useCurrentRes = input(true, title="Trend Confirmation - Use Current Chart Resolution?")
 tc_resCustom = input(title="Trend Confirmation - Use Different Timeframe? Uncheck Box Above", type=input.resolution, defval="D")
 tc_useCurrentprice = true//input(true, title="Use Current Resolution price action for more detail and NO REPAINT! IF UNCHECKED, COLORS CAN/WILL REPAINT (!) and are only valid and final once the custom timeframe has closed!!!")
 tc_show_mfi=input(1, minval = 1, maxval = 3, title="Trend Confirmation Base indicator: 1= RSI, 2= MFI, 3= stoch")
@@ -629,6 +577,63 @@ tc_trend_color=tc_strong_trend?tc_DIcolor:(tc_smooth2>=0 or tc_val5>=0?(tc_high_
 tc_trendline_color=tc_Diff<tc_ext_low_tline_RT?tc_Diff>0?tc_smooth2color:color.red:tc_Diff>tc_ext_high_tline_RT?tc_Diff<0?tc_smooth2color:color.green:(tc_val5>=0?color.green:color.red)
 tc_barcolor_ref=tc_color_base==1?tc_smooth2color:tc_color_base==2?(tc_val5>=0?color.green:color.red):tc_color_base==3?((tc_useCurrentprice?ema(tc_rsi,tc_res_factor):tc_rsi)>50?color.green:color.red):tc_color_base==4?(tc_smooth2>=0 or tc_val5>=0?color.green:(tc_low_rising?tc_smooth2color:color.red)):tc_color_base==5?(tc_smooth2<=0 or tc_val5<=0?color.red:(tc_high_falling?tc_smooth2color:color.green)):tc_color_base==6?tc_trend_color:tc_color_base==7?tc_trendline_color:na
 tc_barc=tc_barcolor_ref==color.green?color.new(color.lime,30):tc_barcolor_ref==color.red?color.new(color.red,20):color.yellow
-barcolor(trend_conf_ebc?tc_barc:na)
+barcolor(tc_ebc ? tc_barc : na, editable=false)
+plotshape(tc_plot and not tc_ebc ? 1 : na,color=tc_barc, location=location.belowbar, style=shape.circle, editable=false)
+
 //baseline_col=strong_trend?DIcolor:na
 //plot(0,color=baseline_col,transp=0,linewidth=2)
+//################### Moving Average #####################
+
+ma_show = input(true, title="Show Moving Averages")
+
+ma_src = close
+ma_1_res = input(title="1. Moving Average Resolution", type=input.resolution, defval='')
+ma_1_type = input(defval='EMA', title='1. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_1_len = input(8, title="1. Moving Average", type=input.integer)
+ma_1_col = color.red
+
+ma_2_res = input(title="2. Moving Average Resolution", type=input.resolution, defval='')
+ma_2_type = input(defval='EMA', title='2. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_2_len = input(13, title="2. Moving Average", type=input.integer)
+ma_2_col = color.orange
+
+ma_3_res = input(title="3. Moving Average Resolution", type=input.resolution, defval='')
+ma_3_type = input(defval='EMA', title='3. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_3_len = input(21, title="3. Moving Average", type=input.integer)
+ma_3_col = color.white
+
+ma_4_res = input(title="4. Moving Average Resolution", type=input.resolution, defval='')
+ma_4_type = input(defval='EMA', title='4. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_4_len = input(34, title="4. Moving Average", type=input.integer)
+ma_4_col = color.yellow
+
+ma_5_res = input(title="5. Moving Average Resolution", type=input.resolution, defval='')
+ma_5_type = input(defval='EMA', title='5. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_5_len = input(55, title="5. Moving Average", type=input.integer)
+ma_5_col = color.blue
+
+ma_6_res = input(title="6. Moving Average Resolution", type=input.resolution, defval='')
+ma_6_type = input(defval='SMA', title='6. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_6_len = input(100, title="6. Moving Average", type=input.integer)
+ma_6_col = color.purple
+
+ma_7_res = input(title="7. Moving Average Resolution", type=input.resolution, defval='')
+ma_7_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_7_len = input(200, title="7. Moving Average", type=input.integer)
+ma_7_col = color.green
+
+ma_1 = calc_ma(ma_src, ma_1_len, ma_1_type, ma_1_res)
+ma_2 = calc_ma(ma_src, ma_2_len, ma_2_type, ma_2_res)
+ma_3 = calc_ma(ma_src, ma_3_len, ma_3_type, ma_3_res)
+ma_4 = calc_ma(ma_src, ma_4_len, ma_4_type, ma_4_res)
+ma_5 = calc_ma(ma_src, ma_5_len, ma_5_type, ma_5_res)
+ma_6 = calc_ma(ma_src, ma_6_len, ma_6_type, ma_6_res)
+ma_7 = calc_ma(ma_src, ma_7_len, ma_7_type, ma_7_res)
+
+plot(ma_show ? ma_1 : na, color=ma_1_col, linewidth=1, title="1. Moving Average")
+plot(ma_show ? ma_2 : na, color=ma_2_col, linewidth=1, title="2. Moving Average", display = display.none)
+plot(ma_show ? ma_3 : na, color=ma_3_col, linewidth=1, title="3. Moving Average", display = display.none)
+plot(ma_show ? ma_4 : na, color=ma_4_col, linewidth=1, title="4. Moving Average")
+plot(ma_show ? ma_5 : na, color=ma_5_col, linewidth=1, title="5. Moving Average")
+plot(ma_show ? ma_6 : na, color=ma_6_col, linewidth=1, title="6. Moving Average", display = display.none)
+plot(ma_show ? ma_7 : na, color=ma_7_col, linewidth=1, title="7. Moving Average", display = display.none)

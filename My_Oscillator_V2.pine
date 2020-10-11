@@ -1,0 +1,128 @@
+//@version=4
+study(title="MyOscillator", shorttitle="MO")
+gm_n1 = input(9, "Channel Length")
+gm_n2 = input(26, "Average Length")
+gm_n3 = input(13, "Short length")
+gm_invert = input(false, "Invert Scale")
+gm_source = hlc3 
+
+calc_ma(_src, _len, _type) =>
+    _type == '' ? _src : _type == 'SMA' ? sma(_src,_len) : _type == 'EMA' ? ema(_src,_len) : _type == 'WMA' ? wma(_src, _len) : _type == 'VWMA' ? vwma(_src, _len) : rma(_src, _len)
+
+tci(src) => ema((src - ema(src, gm_n1)) / (0.025 * ema(abs(src - ema(src, gm_n1)), gm_n1)), gm_n2)+50
+mf(src) => rsi(sum(volume * (change(src) <= 0 ? 0 : src), gm_n3), sum(volume * (change(src) >= 0 ? 0 : src), gm_n3))
+willy(src) => 60 * (src - highest(src, gm_n2)) / (highest(src, gm_n2) - lowest(src, gm_n2)) + 80
+tradition(src) => avg(tci(src),mf(src),rsi(src, gm_n3))
+
+gm_wt1 = tradition(gm_source)
+gm_wt2 = sma(gm_wt1,6)
+gm_wt3 = ema((gm_wt1-gm_wt2)*2+50,gm_n3)
+
+gm_wt1 := gm_invert ? 100-gm_wt1 : gm_wt1 
+gm_wt2 := gm_invert ? 100-gm_wt2 : gm_wt2
+gm_wt3 := gm_invert ? 100-gm_wt3 : gm_wt3
+
+gm_extended1 = gm_wt2<25 ? gm_wt2+5 : gm_wt2>75 ? gm_wt2-5 : na
+gm_extended2 = gm_wt2<20 ? gm_wt2+5 : gm_wt2>80 ? gm_wt2-5 : na
+gm_extended3 = gm_wt2<15 ? gm_wt2+5 : gm_wt2>85 ? gm_wt2-5 : na
+
+gm_wt3_color = gm_wt3 < 50 ? (gm_wt3 > gm_wt3[1] ? color.white : gm_invert ? color.yellow : color.red) : (gm_wt3 < gm_wt3[1] ? color.white : gm_invert ? color.blue : color.green)
+
+plot(gm_wt1, color=gm_invert ? color.blue : color.green, transp=0, linewidth=2)
+plot(gm_wt2, color=gm_invert ? color.yellow : color.red, transp=0, linewidth=2)
+plot(gm_wt3, color=gm_wt3_color, style=plot.style_columns, transp=50, histbase=50)
+
+plot(gm_extended1, title="Caution!", color=color.aqua, style=plot.style_circles, linewidth=2)
+plot(gm_extended2, title="Caution!", color=color.yellow, style=plot.style_circles, linewidth=2)
+plot(gm_extended3, title="Caution!", color=color.red, style=plot.style_circles, linewidth=2)
+
+hline(80, linestyle=hline.style_dashed, color=color.red)
+hline(50, linestyle=hline.style_dashed, color=color.blue)
+hline(20, linestyle=hline.style_dashed, color=color.green)
+
+gm_bb_show = input(false, title="Show Bollinger Bands")
+gm_bb_ma_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+gm_bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
+gm_bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
+
+gm_bb_stdev = stdev(gm_wt1, gm_bb_length)
+gm_bb_basis = calc_ma(gm_wt1, gm_bb_length, gm_bb_ma_type)
+gm_bb_upper = gm_bb_basis + gm_bb_stdDev_factor * gm_bb_stdev
+gm_bb_lower = gm_bb_basis - gm_bb_stdDev_factor * gm_bb_stdev
+
+p1 = plot(gm_bb_show ? gm_bb_upper : na, color=color.blue, title="Upper Band", editable=false)
+plot(gm_bb_show ? gm_bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+p2 = plot(gm_bb_show ? gm_bb_lower : na, color=color.blue, title="Lower Band", editable=false)
+//fill(p1, p2, color=color.green, title="Background", transp=90)
+
+//############# Tip and Dip Oscillator #####################################
+//Inputs
+tnd_lkbk = input(title="Lookback Period", defval=40, minval=1)
+tnd_smooth = input(defval=2, title="Smoothing Value", maxval=4, minval=1)
+tnd_offset_candles = input(false, title="Offset Candles")
+
+//Lowest Close Standard Deviation
+tnd_wvfL = (lowest(close, tnd_lkbk) - high) / lowest(close, tnd_lkbk) * -100
+tnd_sDevL = 3 * stdev(tnd_wvfL, tnd_lkbk)
+tnd_midLineL = sma(tnd_wvfL, tnd_lkbk)
+tnd_lowerBandL = tnd_midLineL - tnd_sDevL
+tnd_upperBandL = tnd_midLineL + tnd_sDevL
+//Highest Close Standard Deviation
+tnd_wvfH = (highest(close, tnd_lkbk) - low) / highest(close, tnd_lkbk) * -100
+tnd_sDevH = 3 * stdev(tnd_wvfH, tnd_lkbk)
+tnd_midLineH = sma(tnd_wvfH, tnd_lkbk)
+tnd_lowerBandH = tnd_midLineH - tnd_sDevH
+tnd_upperBandH = tnd_midLineH + tnd_sDevH
+//High and Low Ranges
+tnd_rangeHighL = highest(tnd_wvfL, tnd_lkbk) * 0.95
+tnd_rangeLowL = lowest(tnd_wvfL, tnd_lkbk) * 1.2
+tnd_rangeHighH = highest(tnd_wvfH, tnd_lkbk) * 0.8
+tnd_rangeLowH = lowest(tnd_wvfH, tnd_lkbk) * 1.05
+//EMA Smoothing
+tnd_ema = tnd_smooth + 1
+tnd_newL = ema(tnd_wvfL, tnd_ema)
+tnd_newH = ema(tnd_wvfH, tnd_ema)
+tnd_new = ema(tnd_wvfL - tnd_wvfH * -1, tnd_ema)
+//Final Histogram
+tnd_histo1 = tnd_new + tnd_newL
+tnd_histo2 = tnd_new + tnd_newH
+tnd_histo3 = ema(tnd_histo1 / 10 + tnd_histo2 / 10, tnd_ema)
+//Histogram Color Conditions
+tnd_range = 1
+tnd_hcol = tnd_histo3 > tnd_range ? #4caf50 : 
+   tnd_histo3 > tnd_range * -1 ? #ffeb3b : tnd_histo3 <= tnd_range * -1 ? #f44336 : na
+ 
+//Conditions For Background and Arrows
+tnd_top1 = tnd_histo3 >= 0
+tnd_top2 = tnd_histo3 < tnd_histo3[1]
+tnd_top3 = tnd_histo3 > tnd_histo3[1]
+tnd_top4 = tnd_histo3[2] > tnd_histo3[1]
+tnd_bot1 = tnd_histo3 < 0
+tnd_bot2 = tnd_histo3 > tnd_histo3[1]
+tnd_bot3 = tnd_histo3 < tnd_histo3[1]
+tnd_bot4 = tnd_histo3[2] < tnd_histo3[1]
+tnd_topc = tnd_histo3[1] > tnd_histo3[2]
+tnd_botc = tnd_histo3[1] < tnd_histo3[2]
+//Arrow Conditions
+tnd_chrt = tnd_top1 and tnd_top2 and tnd_topc
+tnd_chrb = tnd_bot1 and tnd_bot2 and tnd_botc
+tnd_chrtb = tnd_top1 and tnd_top3 and tnd_top4
+tnd_chrbt = tnd_bot1 and tnd_bot3 and tnd_bot4
+tnd_s1 = tnd_smooth == 1
+tnd_s4 = tnd_smooth == 4
+tnd_arwcol = tnd_chrb ? #81c784 : tnd_chrtb ? #4caf50 : tnd_chrt ? #ef9a9a : #f44336
+
+//Background Colors and Conditions {Note: adding the gray makes the colors pop more with a dark bg}
+//bgcolor(colsch == 4 ? na : dark ? color.gray : na, editable=false)
+tnd_bcol = tnd_top1 and tnd_top3 ? #4caf50 : 
+   tnd_top1 and tnd_top2 ? #1b5e20 : tnd_bot1 and tnd_bot3 ? #f44336 : tnd_bot1 and tnd_bot2 ? #b71c1c : na
+//bgcolor(bcol)
+//Final Plot
+//hline(0, title="Zero Line", color=color.white, linestyle=hline.style_dashed, linewidth=1)
+//plot(histo3, style=plot.style_columns, color=hcol, linewidth=1, transp=50)
+//Arrow Plots
+tnd_offset_number = tnd_offset_candles ? tnd_s1 ? -1 : tnd_s4 ? -3 : -2 : na
+plotchar(tnd_chrb, title="Downtrend Bottom", char="↑", location=location.bottom, color=tnd_arwcol, size=size.small, offset=tnd_offset_number)
+plotchar(tnd_chrtb, title="Uptrend Bottom", char="▲", location=location.bottom, color=tnd_arwcol, size=size.small, offset=tnd_offset_number)
+plotchar(tnd_chrt, title="Uptrend Top", char="↓", location=location.top, color=tnd_arwcol, size=size.small, offset=tnd_offset_number)
+plotchar(tnd_chrbt, title="Downtrend Top", char="▼", location=location.top, color=tnd_arwcol, size=size.small, offset=tnd_offset_number)
