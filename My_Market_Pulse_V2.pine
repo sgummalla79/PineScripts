@@ -373,8 +373,8 @@ dmi_exit_lo4 = dmi_exit_lo[1] or dmi_exit_lo[2] or dmi_exit_lo[3] or dmi_exit_lo
 //{Plots}
 
 //Arrows
-plotshape(dmi_exit_plot and (dmi_exit_hi1 or dmi_exit_hi2 or dmi_exit_hi3 or dmi_exit_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2, editable=false)
-plotshape(dmi_exit_plot and (dmi_exit_lo1 or dmi_exit_lo2 or dmi_exit_lo3 or dmi_exit_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2, editable=false)
+plotshape(dmi_exit_plot and (dmi_exit_hi1 or dmi_exit_hi2 or dmi_exit_hi3 or dmi_exit_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period", editable=false)
+plotshape(dmi_exit_plot and (dmi_exit_lo1 or dmi_exit_lo2 or dmi_exit_lo3 or dmi_exit_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period", editable=false)
 
 //Volume Spike
 plotshape(dmi_exit_plot and dmi_exit_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike", editable=false)
@@ -582,6 +582,169 @@ plotshape(tc_plot and not tc_ebc ? 1 : na,color=tc_barc, location=location.below
 
 //baseline_col=strong_trend?DIcolor:na
 //plot(0,color=baseline_col,transp=0,linewidth=2)
+
+//########################### TD Sequential ########################################
+showTDSeq = input(true, "Show TD Sequential")
+showSetup = input(true, "Show setup")
+//showCountdown = input(false, "Show countdown")
+showPerfect = input(true, "Show perfect counts")
+showOnlyCompletion = input(false, "Only show completions")
+showTDST = input(true, "Show TDST Support and Resistance")
+setupRecyclesOnNextBar = input(true, "Setup recycles on next bar")
+flip = input(false, "Setup commences after TD Price Flip")
+showRisk = input(true, "Show risk line")
+//volatilitySmoothing = input(false, "Volatility smoothing (relaxed setup)")
+
+shortColour = color.green
+longColour = color.red
+smoothedColour = color.black
+
+setupShort = int(na)
+setupLong = int(na)
+setupCount = int(na)
+setupColour = color(na)
+perfectSetup = bool(na)
+
+setupShort := if close < close[4] and (close < close[5])
+    0
+else
+    if flip
+        if nz(setupShort[1]) == 0 and close[1] < close[5] and close > close[4]
+            1
+        else
+            if nz(setupShort[1]) == 0
+                0
+            else
+                nz(setupShort[1] + 1)
+    else
+        if setupShort[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupShort[1] + 1)
+
+setupLong := if close > close[4] and (close > close[5])
+    0
+else
+    if flip
+        if nz(setupLong[1]) == 0 and close[1] > close[5] and close < close[4]
+            1
+        else
+            if nz(setupLong[1]) == 0
+                0
+            else
+                nz(setupLong[1] + 1)
+    else
+        if setupLong[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupLong[1] + 1)
+
+setupCount := max(setupShort, setupLong)
+setupColour := setupShort > 0 ? setupLong > 0 ? smoothedColour : shortColour : longColour
+
+perfectSetup := showPerfect and (setupShort == 8 and high >= high[1] and high >= high[2] or 
+   setupShort == 9 and high >= high[2] and high >= high[3] or 
+   setupLong == 8 and low <= low[1] and low <= low[2] or 
+   setupLong == 9 and low <= low[2] and low <= low[3])
+
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+
+// cdownShort = int(na)
+// cdownLong = int(na)
+// cdownColour = color(na)
+// cdownCount = int(na)
+// perfect8 = float(na)
+// perfectCountdown = bool(na)
+// lastCompletedSetup = int(na)
+// setupHigh = float(na)
+// setupLow = float(na)
+// cancelCountdown = bool(na)
+// recycleCountdown = bool(na)
+// LONG = -1
+// SHORT = 1
+// CANCELLED = 0
+
+// recycleCountdown := if setupShort == 9 and lastCompletedSetup[1] == SHORT or setupLong == 9 and lastCompletedSetup[1] == LONG
+//     highest(9) - lowest(9) >= setupHigh[1] - setupLow[1] and 
+//        (setupHigh[1] - setupLow[1]) * 1.618 > highest(9) - lowest(9)
+
+// highest_1 = highest(9)
+// setupHigh := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+//    setupLong == 9 and lastCompletedSetup[1] != LONG ? highest_1 : setupHigh[1]
+// lowest_1 = lowest(9)
+// setupLow := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+//    setupLong == 9 and lastCompletedSetup[1] != LONG ? lowest_1 : setupLow[1]
+
+// cancelCountdown := lastCompletedSetup[1] == SHORT and high < setupLow or 
+//    lastCompletedSetup[1] == LONG and low > setupHigh or recycleCountdown
+
+// lastCompletedSetup := setupLong == 9 ? LONG : 
+//    setupShort == 9 ? SHORT : cdownShort[1] == 13 and setupShort[1] != 9 or 
+//    cdownLong[1] == 13 and setupLong[1] != 9 or cancelCountdown ? CANCELLED : 
+//    lastCompletedSetup[1]
+
+// cdownShort := lastCompletedSetup != SHORT or cancelCountdown ? 0 : 
+//    close >= high[2] ? nz(cdownShort[1]) % 13 + 1 : nz(cdownShort[1]) % 13
+// cdownLong := lastCompletedSetup != LONG or cancelCountdown ? 0 : 
+//    close <= low[2] ? nz(cdownLong[1]) % 13 + 1 : nz(cdownLong[1]) % 13
+
+// cdownCount := max(cdownShort, cdownLong)
+// cdownColour := cdownShort > 0 ? shortColour : longColour
+
+// perfect8 := cdownCount < 8 ? na : cdownCount == 8 ? close : perfect8[1]
+// perfectCountdown := showPerfect and 
+//    (cdownShort == 13 and high >= perfect8 or cdownLong and low <= perfect8)
+
+// plotchar(showTDSeq and not perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Countdown 13", char="", text="13",location=invert ? location.abovebar : location.belowbar, textcolor=cdownColour, transp=0, editable=false)
+// plotchar(showTDSeq and perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Perfect Countdown 13", char="⓭", location=invert ? location.abovebar : location.belowbar, color=cdownColour, transp=0, editable=false)
+
+tdstSupport = float(na)
+tdstResistance = float(na)
+tdRisk = float(na)
+riskbar = int(na)
+
+highest_2 = highest(9)
+tdstResistance := not showTDSeq or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
+lowest_2 = lowest(9)
+tdstSupport := not showTDSeq or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
+
+plot(tdstResistance, title="TDST Resistance", color=longColour, style=plot.style_circles, linewidth=1, editable=false)
+plot(tdstSupport, title="TDST Support", color=shortColour, style=plot.style_circles, linewidth=1, editable=false)
+
+lowest_of_9_bars_0 = lowestbars(9)[0]
+highest_of_9_bars_0 = highestbars(9)[0]
+
+if not showTDSeq or not showRisk
+    tdRisk := na
+    tdRisk
+else
+    if setupLong == 9
+        riskbar := -1 * lowest_of_9_bars_0
+        tdRisk := low[riskbar] - tr[riskbar]
+        tdRisk
+    else
+        if setupShort == 9
+            riskbar := -1 * highest_of_9_bars_0
+            tdRisk := high[riskbar] + tr[riskbar]
+            tdRisk
+        else
+            tdRisk := min(open, close) < tdRisk[1] and max(open, close) > tdRisk[1] ? na : tdRisk[1]
+            tdRisk
+
+plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
+
 //################### Moving Average #####################
 
 ma_show = input(true, title="Show Moving Averages")
