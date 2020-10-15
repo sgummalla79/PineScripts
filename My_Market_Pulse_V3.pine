@@ -166,71 +166,51 @@ plotshape(ema_strategy_show and ema_strategy_sell_cond_ema ? -1 : 0,style=shape.
 //################### Trend Trade System #####################
 tts_src=close
 tts_ema_length = input(26, title="Trend Trade System EMA Length") 
-tts_ema_val = calc_ma(low, tts_ema_length, 'EMA', '')
+tts_ema = calc_ma(low, tts_ema_length, 'EMA', '')
 tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
-tts_vwap_val = calc_ma(vwap, tts_vwap_length, 'EMA', '')
+tts_vwap = calc_ma(vwap, tts_vwap_length, 'EMA', '')
 tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
 tts_up = rma(max(change(tts_src), 0), tts_rsi_len)
 tts_down = rma(-min(change(tts_src), 0), tts_rsi_len)
 tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
 
-plot(tts_vwap_val, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
-plot(tts_ema_val, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
+plot(tts_vwap, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(tts_ema, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
 
-tts_cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
+//
+tts_cond1 = tts_rsi > 55 and close > tts_ema ? 1 : 0
 barcolor(tts_ebc and tts_cond1 ? color.lime : na, editable=false) 
 
-tts_cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
+tts_cond2 = tts_rsi < 45 and close < tts_ema ? 1 : 0
 barcolor(tts_ebc and tts_cond2 ? color.red : na, editable=false) 
 
-tts_cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond3 ? color.orange : na, editable=false)
+tts_cond3 = tts_rsi < 50 and close < tts_ema ? 1 : 0
+barcolor(tts_ebc and tts_cond3 ? color.yellow : na, editable=false)
 
-tts_cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
-barcolor(tts_ebc and tts_cond4 ? color.teal : na, editable=false)
+tts_cond4 = tts_rsi > 50 and close > tts_ema ? 1 : 0
+barcolor(tts_ebc and tts_cond4 ? color.orange : na, editable=false)
 
-tts_cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
-barcolor(tts_ebc and tts_cond5 ? color.white : na, editable=false)
+tts_cond5 = (tts_rsi < 50 and close > tts_ema) or (tts_rsi > 50 and close < tts_ema)? 1 : 0
+barcolor(tts_ebc and tts_cond5 ? color.black : na, editable=false)
 
-//################### Coral Indicator #####################
-coral_src=close
-coral_sm =input(21, title="Coral Indicator Smoothing Period")
-coral_cd = input(0.4, title="Coral Indicator Constant D")
+//
+tts_cond7 = tts_rsi > 50 and close < tts_vwap and close > tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond7, color=color.lime, style=shape.square, location=location.belowbar, editable=false)
 
-coral_di = (coral_sm - 1.0) / 2.0 + 1.0
-coral_c1 = 2 / (coral_di + 1.0)
-coral_c2 = 1 - coral_c1
-coral_c3 = 3.0 * (coral_cd * coral_cd + coral_cd * coral_cd * coral_cd)
-coral_c4 = -3.0 * (2.0 * coral_cd * coral_cd + coral_cd + coral_cd * coral_cd * coral_cd)
-coral_c5 = 3.0 * coral_cd + 1.0 + coral_cd * coral_cd * coral_cd + 3.0 * coral_cd * coral_cd
+tts_cond8 = tts_rsi < 50 and close > tts_vwap and close < tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond8, color=color.red, style=shape.square, location=location.belowbar, editable=false)
 
-coral_i1 = float(na)
-coral_i1 := coral_c1*coral_src + coral_c2*nz(coral_i1[1])
+tts_cond9 = tts_rsi > 50 and close < tts_vwap and close > tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond9, color=lime, style=shape.triangleup, location=location.belowbar,  editable=false)
 
-coral_i2 = float(na)
-coral_i2 := coral_c1*coral_i1 + coral_c2*nz(coral_i2[1])
+tts_cond10 = tts_rsi < 50 and close > tts_vwap and close < tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond10, color=red, style=shape.triangledown, location=location.belowbar,  editable=false)
 
-coral_i3 = float(na)
-coral_i3 := coral_c1*coral_i2 + coral_c2*nz(coral_i3[1])
+tts_cond11 = tts_rsi > 75 and close > tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond11, color=color.blue, style=shape.flag, location=location.belowbar, editable=false)
 
-coral_i4 = float(na)
-coral_i4 := coral_c1*coral_i3 + coral_c2*nz(coral_i4[1])
-
-coral_i5 = float(na)
-coral_i5 := coral_c1*coral_i4 + coral_c2*nz(coral_i5[1])
-
-coral_i6 = float(na)
-coral_i6 := coral_c1*coral_i5 + coral_c2*nz(coral_i6[1])
-
-bfr = -coral_cd*coral_cd*coral_cd*coral_i6 + coral_c3*(coral_i5) + coral_c4*(coral_i4) + coral_c5*(coral_i3)
-// --------------------------------------------------------------------------
-// For the Pinescript coders: Determining trend based on the mintick step. 
-// --------------------------------------------------------------------------
-//bfrC = bfr - nz(bfr[1]) > syminfo.mintick ? green : bfr - nz(bfr[1]) < syminfo.mintick ? color.red : color.blue
-coral_bfrC = bfr > nz(bfr[1]) ? lime : bfr < nz(bfr[1])  ? brightred : color.blue
-coral_tc=coral_ebc? na :coral_bfrC
-plot(coral_plot ? bfr : na, title="Trend", linewidth=3, style=plot.style_circles, color=coral_tc, editable=false)
-barcolor(coral_plot and coral_ebc ? coral_bfrC : na, editable=false)
+tts_cond12 = tts_rsi < 25 and close < tts_ema ? 1 : 0
+plotshape(tts_ebc and tts_cond12, color=color.purple,style=shape.flag, location=location.belowbar, editable=false)
 
 //############### high time frame trend ######
 //Inputs
@@ -394,9 +374,6 @@ plotshape(htf_plot and (htf_lo1 or htf_lo2 or htf_lo3 or htf_lo4), style=shape.t
 
 //Volume Spike
 plotshape(htf_plot and htf_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike")
-
-//DMI Bars
-//barcolor(s4 ? yellow : s3 ? white : s2 and s6 ? brightred : s2 and s8 ? yellred : s2 ? red : s1 and s5 ? lime : s1 and s7 ? yellgreen : s1 ? green : white, title="DMI Bars")
 
 //{Multi Time Frame Labels} -- uses the code created by Ricardo Santos for the text labels
 

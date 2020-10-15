@@ -1,0 +1,280 @@
+//@version=4
+study("(JS) Ultimate RSI", shorttitle="(JS)URSI")
+//-----------------------------------------------------------------------------------------------
+//{Inputs}
+//-----------------------------------------------------------------------------------------------
+rsim                = input(title="RSI Source", type=input.source, defval=close)
+bool    custres     = input(defval=false,title="Custom Intraday Resolution")
+int     csresnb     = input(defval=78,title="Chart Increment in Minutes")
+int     rsil        = input(defval=14, minval=1, title="RSI Length")
+float   rv          = volume / sma(volume, input(defval=50, minval=1, title="Relative Volume Length"))
+bool    rvv         = input(title="RV x Divergence",defval=false)
+bool    rvvv        = input(title="RV x RS",defval=false)
+float   drsw        = input(title="Divergence Weight", defval=0, minval=0, maxval=2, step=0.1)
+bool    unsmooth    = input(title="SMA Divergence",defval=true)
+bool    channel     = input(title='Show Fractal Channel',defval=false)
+bool    dubrsi      = input(title="Slow RSI",defval=false)
+int     srsil       = input(title="Slow RSI Length",defval=39,minval=1)
+bool    pivpoint    = input(title="Pivot Points",defval=false)
+bool    plotPP      = pivpoint ? input(title="Plot Pivot",defval=false) : na
+bool    plotS1R1    = pivpoint ? input(title="Plot S1/R1",defval=false) : na
+bool    plotS2R2    = pivpoint ? input(title="Plot S2/R2",defval=false) : na
+bool    plotS3R3    = pivpoint ? input(title="Plot S3/R3",defval=false) : na
+bool    plotS4R4    = pivpoint ? input(title="Plot S4/R4",defval=false) : na
+bool    plotS5R5    = pivpoint ? input(title="Plot S5/R5",defval=false) : na
+bool    plothalf    = pivpoint ? input(title="Plot Halfway Points",defval=false) : na
+bool    showLabels  = pivpoint ? input(title="Show Pivot Labels",defval=false) : na
+int     bgc         = input(title="Background Colors", defval=1, minval=1, maxval=6)
+bool    bgcgr       = input(title="Gray Background for Dark Mode", defval=true)
+bool    fib         = input(title="Fibonacci Levels",defval=false)
+
+//-----------------------------------------------------------------------------------------------
+//{RSI Calculations-Divergence/Volume Weighted}
+//-----------------------------------------------------------------------------------------------
+// Price Change % and RSI Change %
+pricechg    = (close - close[1]) / close[1]
+rsi_1       = rsi(rsim, rsil)
+rsi_2       = rsi(rsim[1], rsil)
+rsi_3       = rsi(rsim[1], rsil)
+rsi_4       = rsi(rsim, rsil)
+rsi_5       = rsi(rsim[1], rsil)
+rsi_6       = rsi(rsim[1], rsil)
+rsichg      = pricechg > 0 ? (rsi_1 - rsi_2) / rsi_3 : (rsi_4 - rsi_5) / rsi_6 * -1
+// RS for Standard RSI
+change_1    = change(rsim)
+rma_1       = rma(max(change_1, 0), rsil)
+change_2    = change(rsim)
+rma_2       = rma(max(change_2, 0), rsil)
+srsup       = pricechg > 0 ? rma_1 * (rvvv ? rv : 1) : rma_2
+change_3    = change(rsim)
+rma_3       = rma(-min(change_3, 0), rsil)
+change_4    = change(rsim)
+rma_4       = rma(-min(change_4, 0), rsil)
+srsdn       = pricechg < 0 ? rma_3 * (rvvv ? rv : 1) : rma_4
+srs         = srsup / srsdn
+// Divergence
+div         = rsichg / pricechg
+divu        = div > 0 ? div * 1 : div - div
+divd        = div < 0 ? div * -1 : div + div * -1
+sma_1       = sma(divu, rsil)
+sma_2       = sma(divu, rsil)
+rma_5       = rma(divu, rsil)
+rma_6       = rma(divu, rsil)
+avgdivu     = unsmooth ? pricechg > 0 ? sma_1 * (rvv ? rv : 1) : sma_2 : 
+   pricechg > 0 ? rma_5 * rv : rma_6
+sma_3       = sma(divd, rsil)
+sma_4       = sma(divd, rsil)
+rma_7       = rma(divd, rsil)
+rma_8       = rma(divd, rsil)
+avgdivd     = unsmooth ? pricechg < 0 ? sma_3 * (rvv ? rv : 1) : sma_4 : 
+   pricechg < 0 ? rma_7 * rv : rma_8
+divrs       = avgdivu / avgdivd
+// New Combined RS
+rsidvwrs    = (srs * (2 - drsw) + divrs * drsw) / 2
+// RSI + Divergence Volume Weighted
+rsidvw      = 100 - 100 / (1 + rsidvwrs)
+//-----------------------------------------------------------------------------------------------
+//{RSI Calculations-Slow RSI}
+//-----------------------------------------------------------------------------------------------
+up          = rma(max(change(close), 0), srsil)
+down        = rma(-min(change(close), 0), srsil)
+slowrsi     = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+//-----------------------------------------------------------------------------------------------
+//{DESIGN}
+//-----------------------------------------------------------------------------------------------
+//Colors
+magenta     = #e91e63
+red         = #f44336
+darkred     = #a90000
+lime        = #15ff00
+green       = #4caf50
+darkgreen   = #033712
+darkmagenta = #880e4f
+skyblue     = #64b5f6
+blue        = #005ae5
+darkblue    = #03265c
+purple      = #673ab7
+litepurp    = #9575cd
+darkpurp    = #311b92
+yellow      = #ffeb3b
+darkyellow  = #625800
+orange      = #ff9800
+darkorange  = #bc4200
+teal        = #009688
+darkteal    = #004d40
+//RSIDVW Plot
+plot(rsidvw, title="RSI", style=plot.style_line, linewidth=1, color=color.white, transp=0)
+plot(dubrsi ? slowrsi : na, title="Slow RSI", style=plot.style_line, linewidth=1, color=color.yellow, transp=0)
+//Lines on Plot
+divbear     = bgc == 1 ? red : bgc == 2 ? magenta : bgc == 3 ? magenta : bgc == 4 ? purple : bgc == 5 ? orange : color.gray
+divbull     = bgc == 1 ? green : bgc == 2 ? lime : bgc == 3 ? skyblue : bgc == 4 ? teal : bgc == 5 ? yellow : color.gray
+//Background Trend Color
+re1         = ema(rsidvw, 13)
+re2         = ema(rsidvw, 39)
+rbg         = re1 - re2
+bg1         = rbg >= 0
+bg2         = rbg >= rbg[1]
+bg3         = rbg < rbg[1]
+bg4         = rbg < 0
+bgcolor(bgcgr ? color.gray : na, editable=false, transp=95)
+bgc1        = bg1 and bg2 ? green : bg1 and bg3 ? darkgreen : 
+   bg4 and bg3 ? red : bg4 and bg2 ? darkred : darkteal
+bgc2        = bg1 and bg2 ? lime : 
+   bg1 and bg3 ? darkgreen : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkteal
+bgc3        = bg1 and bg2 ? skyblue : 
+   bg1 and bg3 ? darkblue : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkpurp
+bgc4        = bg1 and bg2 ? teal : 
+   bg1 and bg3 ? darkteal : bg4 and bg3 ? litepurp : bg4 and bg2 ? purple : blue
+bgc5        = bg1 and bg2 ? yellow : 
+   bg1 and bg3 ? darkyellow : bg4 and bg3 ? orange : bg4 and bg2 ? darkorange : color.olive
+bgc6        = bg1 and bg2 ? color.white : 
+   bg1 and bg3 ? color.silver : bg4 and bg3 ? color.gray : bg4 and bg2 ? color.silver : color.white
+bgcol       = bgc == 1 ? bgc1 : bgc == 2 ? bgc2 : bgc == 3 ? bgc3 : bgc == 4 ? bgc4 : bgc == 5 ? bgc5 : bgc6
+bgcolor(bgcol)
+//FRACTAL-FUNCTIONS- Fractal formula from Ricardo Santos 
+ftf(_src) =>
+    _src[4] < _src[2] and _src[3] < _src[2] and _src[2] > _src[1] and 
+       _src[2] > _src[0]
+fbf(_src) =>
+    _src[4] > _src[2] and _src[3] > _src[2] and _src[2] < _src[1] and 
+       _src[2] < _src[0]
+ffract(_src) =>
+    fbf__1 = fbf(_src)
+    ftf(_src) ? 1 : fbf__1 ? -1 : 0
+fractaltop  = (ffract(rsidvw) > 0 ? rsidvw[2] : na)
+fractalbot  = (ffract(rsidvw) < 0 ? rsidvw[2] : na)
+high_prev   = (valuewhen(fractaltop, rsidvw[2], 1))
+high_price  = valuewhen(fractaltop, high[2], 1)
+low_prev    = (valuewhen(fractalbot, rsidvw[2], 1))
+low_price   = valuewhen(fractalbot, low[2], 1)
+regbeardiv  = (fractaltop and high[2] > high_price and rsidvw[2] < high_prev)
+hidbeardiv  = (fractaltop and high[2] < high_price and rsidvw[2] > high_prev)
+regbulldiv  = (fractalbot and low[2] < low_price and rsidvw[2] > low_prev)
+hidbulldiv  = (fractalbot and low[2] > low_price and rsidvw[2] < low_prev)
+//FRACTAL-PLOT
+plot(title='Bearish Fractal', series=fractaltop ? rsidvw[2] : na, color=regbeardiv ? divbear : not channel ? na : color.silver, linewidth=3, offset=-2, editable=false)
+plot(title='Bullish Fractal', series=fractalbot ? rsidvw[2] : na, color=regbulldiv ? divbull : not channel ? na : color.silver, linewidth=3, offset=-2, editable=false)
+plot(title='Bearish Divergence', series=fractaltop ? rsidvw[2] : na, style=plot.style_circles, color=regbeardiv ? divbear : not channel ? na : color.silver, linewidth=4, offset=-2, editable=false)
+plot(title='Bullish Divergence', series=fractalbot ? rsidvw[2] : na, style=plot.style_circles, color=regbulldiv ? divbull : not channel ? na : color.silver, linewidth=4, offset=-2, editable=false)
+//-----------------------------------------------------------------------------------------------
+//{RSI Pivot Point Formulas}
+//-----------------------------------------------------------------------------------------------
+// High Low Time Formula
+is_newbar(res) =>
+    t2 = time(res)
+    change(t2) != 0 ? 1 : 0
+// New Long Term Intervals
+new_day     = is_newbar("D")
+new_week    = is_newbar("W")
+new_month   = is_newbar("M")
+// Lookback For Each Individual Time Frame
+find        = timeframe.isweekly ? 52 : timeframe.isdaily ? 40 : timeframe.ismonthly ? 12 :
+   (custres and (timeframe.isintraday and timeframe.multiplier == csresnb)) ? 40 :
+   timeframe.isintraday and timeframe.multiplier == 1 ? 390 : 
+   timeframe.isintraday and timeframe.multiplier == 2 ? 195 : 
+   timeframe.isintraday and timeframe.multiplier == 3 ? 130 : 
+   timeframe.isintraday and timeframe.multiplier == 5 ? 78 : 
+   timeframe.isintraday and timeframe.multiplier == 10 ? 39 : 
+   timeframe.isintraday and timeframe.multiplier == 13 ? 30 : 
+   timeframe.isintraday and timeframe.multiplier == 15 ? 26 : 
+   timeframe.isintraday and timeframe.multiplier == 20 ? 98 : 
+   timeframe.isintraday and timeframe.multiplier == 30 ? 78 : 
+   timeframe.isintraday and timeframe.multiplier == 39 ? 50 : 
+   timeframe.isintraday and timeframe.multiplier == 60 ? 35 : 
+   timeframe.isintraday and timeframe.multiplier == 78 ? 25 : 
+   timeframe.isintraday and timeframe.multiplier == 120 ? 60 : 
+   timeframe.isintraday and timeframe.multiplier == 130 ? 60 : 
+   timeframe.isintraday and timeframe.multiplier == 180 ? 40 :
+   timeframe.isintraday and timeframe.multiplier == 195 ? 40 :
+   timeframe.isintraday and timeframe.multiplier == 240 ? 40 : 
+   timeframe.isintraday and timeframe.multiplier == 300 ? 40 : 
+   timeframe.isintraday and timeframe.multiplier == 360 ? 40 :
+   timeframe.isintraday and timeframe.multiplier == 720 ? 40 : 0
+// Detect New Long Term Intervals
+find2       = timeframe.isweekly ? new_month : timeframe.isdaily ? new_month : 
+   timeframe.isintraday and timeframe.multiplier < 30 ? new_day : 
+   timeframe.isintraday and timeframe.multiplier >= 130 ? new_month : 
+   timeframe.isintraday and timeframe.multiplier >= 30 ? new_week : na
+// High and Low
+hv          = highest(rsidvw, find)
+lv          = lowest(rsidvw, find)
+// Get Prior Close 
+dc          = valuewhen(find2, rsidvw[1], 0)
+dh          = valuewhen(find2, hv, 0)
+dl          = valuewhen(find2, lv, 0)
+// Pivot Points
+dp          = (dh + dl + dc) / 3
+dr1         = 2 * dp - dl
+dr2         = dp + dh - dl
+dr3         = dp * 2 + dh - 2 * dl
+dr4         = dp * 3 + dh - 3 * dl
+dr5         = dp * 4 + dh - 4 * dl
+dr15        = dr2 - (dr2 - dr1) / 2
+dr25        = dr3 - (dr3 - dr2) / 2
+dr35        = dr4 - (dr4 - dr3) / 2
+dr45        = dr5 - (dr5 - dr4) / 2
+ds1         = 2 * dp - dh
+ds2         = dp - (dh - dl)
+ds3         = dp * 2 - (2 * dh - dl)
+ds4         = dp * 3 - (3 * dh - dl)
+ds5         = dp * 4 - (4 * dh - dl)
+ds15        = (ds1 - ds2) / 2 + ds2
+ds25        = (ds2 - ds3) / 2 + ds3
+ds35        = (ds3 - ds4) / 2 + ds4
+ds45        = (ds4 - ds5) / 2 + ds5
+// Set The Upper And Lower RSI Limits (So Pivots Plotted Don't Exceed These Points)
+th          = 100
+tl          = 0
+// Plot Pivot Levels
+plot(series=plotS3R3 ? dr3 >= th ? na : dr3 <= tl ? na : dr3 : na, title="R 5", style=plot.style_linebr, linewidth=1, color=#ff0000)
+plot(series=plothalf ? dr45 >= th ? na : dr45 <= tl ? na : dr25 : na, title="R 4.5", style=plot.style_linebr, linewidth=1, color=#b71c1c)
+plot(series=plotS3R3 ? dr3 >= th ? na : dr3 <= tl ? na : dr3 : na, title="R 4", style=plot.style_linebr, linewidth=1, color=#b71c1c)
+plot(series=plothalf ? dr35 >= th ? na : dr35 <= tl ? na : dr15 : na, title="R 3.5", style=plot.style_linebr, linewidth=1, color=#f44336)
+plot(series=plotS3R3 ? dr3 >= th ? na : dr3 <= tl ? na : dr3 : na, title="R 3", style=plot.style_linebr, linewidth=1, color=#f44336)
+plot(series=plothalf ? dr25 >= th ? na : dr25 <= tl ? na : dr25 : na, title="R 2.5", style=plot.style_linebr, linewidth=1, color=#ef5350)
+plot(series=plotS2R2 ? dr2 >= th ? na : dr2 <= tl ? na : dr2 : na, title="R 2", style=plot.style_linebr, linewidth=1, color=#e57373)
+plot(series=plothalf ? dr15 >= th ? na : dr15 <= tl ? na : dr15 : na, title="R 1.5", style=plot.style_linebr, linewidth=1, color=#ef9a9a)
+plot(series=plotS1R1 ? dr1 >= th ? na : dr1 <= tl ? na : dr1 : na, title="R 1", style=plot.style_linebr, linewidth=1, color=#ffcdd2)
+plot(series=plotPP ? dp >= th ? na : dp <= tl ? na : dp : na, title="P", style=plot.style_linebr, linewidth=1, color=#ffeb3b)
+plot(series=plotS1R1 ? ds1 >= th ? na : ds1 <= tl ? na : ds1 : na, title="S 1", style=plot.style_linebr, linewidth=1, color=#c8e6c9)
+plot(series=plothalf ? ds15 >= th ? na : ds15 <= tl ? na : ds15 : na, title="S 1.5", style=plot.style_linebr, linewidth=1, color=#a5d6a7)
+plot(series=plotS2R2 ? ds2 >= th ? na : ds2 <= tl ? na : ds2 : na, title="S 2", style=plot.style_linebr, linewidth=1, color=#81c784)
+plot(series=plothalf ? ds25 >= th ? na : ds25 <= tl ? na : ds25 : na, title="S 2.5", style=plot.style_linebr, linewidth=1, color=#66bb6a)
+plot(series=plotS3R3 ? ds3 >= th ? na : ds3 <= tl ? na : ds3 : na, title="S 3", style=plot.style_linebr, linewidth=1, color=#388e3c)
+plot(series=plothalf ? ds15 >= th ? na : ds15 <= tl ? na : ds15 : na, title="S 3.5", style=plot.style_linebr, linewidth=1, color=#388e3c)
+plot(series=plotS3R3 ? ds3 >= th ? na : ds3 <= tl ? na : ds3 : na, title="S 4", style=plot.style_linebr, linewidth=1, color=#1b5e20)
+plot(series=plothalf ? ds25 >= th ? na : ds25 <= tl ? na : ds25 : na, title="S 4.5", style=plot.style_linebr, linewidth=1, color=#1b5e20)
+plot(series=plotS3R3 ? ds3 >= th ? na : ds3 <= tl ? na : ds3 : na, title="S 5", style=plot.style_linebr, linewidth=1, color=#15ff00)
+// Display Pivot Names On Chart
+pivotType   = "Daily"
+newPivots   = showLabels == false ? false : 
+   pivotType == "Daily" ? dayofmonth != dayofmonth[1] : 
+   dayofweek == dayofweek.monday and dayofmonth != dayofmonth[1]
+plotchar(series=newPivots and plothalf ? dr25 >= th ? na : dr25 <= tl ? na : dr25 : na, char='', text="R 2.5", offset=1, location=location.absolute, color=#ef5350, title="R 2.5 label", editable=false)
+plotchar(series=newPivots and plothalf ? dr15 >= th ? na : dr15 <= tl ? na : dr15 : na, char='', text="R 1.5", offset=1, location=location.absolute, color=#ef9a9a, title="R 1.5 label", editable=false)
+plotchar(series=newPivots and plotS3R3 ? dr3 >= th ? na : dr3 <= tl ? na : dr3 : na, char='', text="R 3", offset=1, location=location.absolute, color=#f44336, title="R 3 label", editable=false)
+plotchar(series=newPivots and plotS2R2 ? dr2 >= th ? na : dr2 <= tl ? na : dr2 : na, char='', text="R 2", offset=1, location=location.absolute, color=#e57373, title="R 2 label", editable=false)
+plotchar(series=newPivots and plotS1R1 ? dr1 >= th ? na : dr1 <= tl ? na : dr1 : na, char='', text="R 1", offset=1, location=location.absolute, color=#ffcdd2, title="R 1 label", editable=false)
+plotchar(series=newPivots and plotPP ? dp >= th ? na : dp <= tl ? na : dp : na, char='', text="P", offset=1, location=location.absolute, color=#ffeb3b, title="P label", editable=false)
+plotchar(series=newPivots and plotS1R1 ? ds1 >= th ? na : ds1 <= tl ? na : ds1 : na, char='', text="S 1", offset=1, location=location.absolute, color=#c8e6c9, title="S 1 label", editable=false)
+plotchar(series=newPivots and plotS2R2 ? ds2 >= th ? na : ds2 <= tl ? na : ds2 : na, char='', text="S 2", offset=1, location=location.absolute, color=#81c784, title="S 2 label", editable=false)
+plotchar(series=newPivots and plotS3R3 ? ds3 >= th ? na : ds3 <= tl ? na : ds3 : na, char='', text="S 3", offset=1, location=location.absolute, color=#388e3c, title="S 3 label", editable=false)
+plotchar(series=newPivots and plothalf ? ds15 >= th ? na : ds15 <= tl ? na : ds15 : na, char='', text="S 1.5", offset=1, location=location.absolute, color=#a5d6a7, title="S 1.5 label", editable=false)
+plotchar(series=newPivots and plothalf ? ds25 >= th ? na : ds25 <= tl ? na : ds25 : na, char='', text="S 2.5", offset=1, location=location.absolute, color=#66bb6a, title="S 2.5 label", editable=false)
+//-----------------------------------------------------------------------------------------------
+//{Fibonacci Levels}
+//-----------------------------------------------------------------------------------------------
+// Regular Levels
+upper1      = plot(fib ? na : 70, title="Overbought", style=plot.style_circles, linewidth=1, color=divbear,join=true,transp=70)
+centerLine  = plot(fib ? na : 50, title="Center Line", style=plot.style_circles, linewidth=1, color=color.silver,join=true,transp=70)
+lower1      = plot(fib ? na : 30, title="Oversold", style=plot.style_circles, linewidth=1, color=divbull,join=true,transp=70)
+// Fibonacci Levels
+fib1        = plot(fib ? 88.6 : na, title="88.6", style=plot.style_line, linewidth=2, transp=70, color=magenta)
+fib2        = plot(fib ? 78.6 : na, title="78.6", style=plot.style_line, linewidth=2, transp=70, color=darkred)
+fib3        = plot(fib ? 70.7 : na, title="70.7", style=plot.style_line, linewidth=2, transp=70, color=red)
+fib4        = plot(fib ? 61.8 : na, title="61.8", style=plot.style_line, linewidth=2, transp=70, color=orange)
+fib5        = plot(fib ? 50.0 : na, title="50.0", style=plot.style_line, linewidth=2, transp=70, color=color.gray)
+fib6        = plot(fib ? 38.2 : na, title="38.2", style=plot.style_line, linewidth=2, transp=70, color=yellow)
+fib7        = plot(fib ? 30.9 : na, title="30.9", style=plot.style_line, linewidth=2, transp=70, color=teal)
+fib8        = plot(fib ? 23.6 : na, title="23.6", style=plot.style_line, linewidth=2, transp=70, color=green)
+fib9        = plot(fib ? 14.6 : na, title="14.6", style=plot.style_line, linewidth=2, transp=70, color=lime)
