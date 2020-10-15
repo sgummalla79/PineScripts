@@ -1,0 +1,32 @@
+//@version=2
+
+study(title = "High Low Envelope Sigma", shorttitle = "HLE Sigma", overlay = true)
+
+// Revision:        1
+// Author:          @JayRogers
+//
+// *** USE AT YOUR OWN RISK ***
+// 
+// Description:
+// - High and Low Envelope channel with median line and 'sigma' offsets to try and encapsulate
+//   price flow and quickly locate likely areas of support and resistance within smaller trend.
+
+//=== INPUTS ===
+length  = input(defval = 25, title = "Envelope Length", minval = 1, maxval = 1000)
+sigma   = input(defval = 1.0, title = "Sigma Multiply", minval = 0.01, step = 0.1)
+//=== /INPUTS ===
+
+//=== SERIES and VAR ===
+upperEnvelope   = highest(high, length)
+lowerEnvelope   = lowest(low, length)
+envelopeMedian  = (upperEnvelope + lowerEnvelope) / 2
+envelopeSigma   = ((upperEnvelope - lowerEnvelope) / 8) * sigma
+//=== /SERIES and VAR ===
+
+//=== PLOTTING ===
+plot(upperEnvelope, title = "Upper Envelope", color = #66FFFF, linewidth = 2)
+plot(envelopeMedian + envelopeSigma, title = "Upper Sigma", color = #66FFFF, linewidth = 1, style = line)
+plot(envelopeMedian, title = "Median", color = silver, linewidth = 1, style = circles)
+plot(envelopeMedian - envelopeSigma, title = "Lower Sigma", color = #FF1133, linewidth = 1, style = line)
+plot(lowerEnvelope, title = "Lower Envelope", color = #FF1133, linewidth = 2)
+//=== /PLOTTING ===

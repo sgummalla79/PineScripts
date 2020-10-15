@@ -1,0 +1,39 @@
+// Tradingview.com
+// @author LazyBear, xSilas, Ni6HTH4wK, 
+// Drop a line if you use or modify this code.
+//modified by sco77m4r7in and oh92 -- updated and fixed multi exchange error, and added addtional caution dots. 
+study(title="Godmode3.2")
+n1 = input(9, "Channel Length")
+n2 = input(26, "Average Length")
+n3 = input(13, "Short length")
+src0 = hlc3 
+
+tci(src) => ema((src - ema(src, n1)) / (0.025 * ema(abs(src - ema(src, n1)), n1)), n2)+50
+mf(src) => rsi(sum(volume * (change(src) <= 0 ? 0 : src), n3), sum(volume * (change(src) >= 0 ? 0 : src), n3))
+willy(src) => 60 * (src - highest(src, n2)) / (highest(src, n2) - lowest(src, n2)) + 80
+csi(src) => avg(rsi(src, n3),tsi(src0,n1,n2)*50+50)
+godmode(src) => avg(tci(src),csi(src),mf(src),willy(src))
+tradition(src) => avg(tci(src),mf(src),rsi(src, n3))
+//tradition(src) => avg(tci(src),mf(src),rsi(src, n3), csi(src))
+
+wt1 = sma(tradition(src0),6)
+wt2 = sma(wt1,6)
+wt3 = ema((wt1-wt2)*2+50,n3)
+
+extended1 = wt2<25 ? wt2+5 : wt2>75 ? wt2-5 : na
+extended2 = wt2<20 ? wt2+5 : wt2>80 ? wt2-5 : na
+extended3 = wt2<15 ? wt2+5 : wt2>85 ? wt2-5 : na
+
+plot(wt1, color=green, linewidth=2, style=columns, histbase=50)
+plot(wt2, color=red, linewidth=2)
+plot(wt3, color=aqua, style=columns, transp=80, histbase=50)
+plot(extended1, title="Caution!", color=aqua, style=circles, linewidth=2)
+plot(extended2, title="Caution!", color=yellow, style=circles, linewidth=2)
+plot(extended3, title="Caution!", color=red, style=circles, linewidth=3)
+
+hline(80)
+hline(50)
+hline(20)
+
+//orignal settings 9,26,13
+//orignal settings 7,6,4

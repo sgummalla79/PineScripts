@@ -1,0 +1,218 @@
+//@version=4
+study(title="(JS) Squeeze Pro 2", shorttitle="(JS)SqzPro2", overlay=false)
+
+//----------------------------{ Inputs }----------------------------------------
+
+src                 = input(defval=close, title="Squeeze Input", type=input.source)
+int     length      = input(20, title="Length", minval=1)
+string  bbmatype    = input(defval='SMA', title='Bollinger Bands Calculation Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+string  kcmatype    = input(defval='SMA', title='Keltner Channel Calculation Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+int     color_1     = input(title="Color Format", defval=2, minval=1, maxval=6)
+bool    drdiv       = input(defval=false, title="Draw Divergence")
+bool    bgoff       = input(defval=false, title="Background Off")
+bool    darkm       = input(defval=true, title="Gray Background for Dark Mode")
+bool    zerold      = input(defval=false, title="Zero Line Dots")
+bool    lowsqzwht   = input(defval=true, title="Low Squeeze White")
+
+//Bollinger Bands Basis Line
+smabb       = sma(src, length)
+emabb       = ema(src, length)
+wmabb       = wma(src, length)
+vwmabb      = vwma(src, length)
+rmabb       = rma(src, length)
+basis       = bbmatype == 'SMA' ? smabb : bbmatype == 'EMA' ? emabb : 
+   bbmatype == 'WMA' ? wmabb : bbmatype == 'VWMA' ? vwmabb : rmabb
+
+//Keltner Channel Basis Line
+smakc       = sma(src, length)
+emakc       = ema(src, length)
+wmakc       = wma(src, length)
+vwmakc      = vwma(src, length)
+rmakc       = rma(src, length)
+basiskc     = bbmatype == 'SMA' ? smakc : kcmatype == 'EMA' ? emakc : 
+   kcmatype == 'WMA' ? wmakc : kcmatype == 'VWMA' ? vwmakc : rmakc
+
+// Keltner Channel Low
+smakcl      = sma(tr, length)
+emakcl      = ema(tr, length)
+wmakcl      = wma(tr, length)
+vwmakcl     = vwma(tr, length)
+rmakcl      = rma(tr, length)
+rangemal    = kcmatype == 'SMA' ? smakcl : kcmatype == 'EMA' ? emakcl : 
+   kcmatype == 'WMA' ? wmakcl : kcmatype == 'VWMA' ? vwmakcl : rmakcl
+// Keltner Channel Mid
+smakcm      = sma(tr, length)
+emakcm      = ema(tr, length)
+wmakcm      = wma(tr, length)
+vwmakcm     = vwma(tr, length)
+rmakcm      = rma(tr, length)
+rangemam    = kcmatype == 'SMA' ? smakcm : kcmatype == 'EMA' ? emakcm : 
+   kcmatype == 'WMA' ? wmakcm : kcmatype == 'VWMA' ? vwmakcm : rmakcm
+//Keltner Channel High
+smakch      = sma(tr, length)
+emakch      = ema(tr, length)
+wmakch      = wma(tr, length)
+vwmakch     = vwma(tr, length)
+rmakch      = rma(tr, length)
+rangemah    = kcmatype == 'SMA' ? smakch : kcmatype == 'EMA' ? emakch : 
+   kcmatype == 'WMA' ? wmakch : kcmatype == 'VWMA' ? vwmakch : rmakch
+
+//{Instead of putting the numbers in the formula, I chose to do it this way so you could set it in actual BB or KC too}
+
+//Bollinger Bands Multiplier
+mult        = 2.0
+//Keltner Channel Low Multiplier
+multlowKC   = 2.0
+//Keltner Channel Mid Multiplier
+multmidKC   = 1.5
+//Keltner Channel High Multiplier
+multhighKC  = 1.0
+
+//Bollinger Bands 
+dev         = mult * stdev(src, length)
+upperBB     = basis + dev
+lowerBB     = basis - dev
+//Keltner Channel Bands Low 
+upperKCl    = basiskc + rangemal * multlowKC
+lowerKCl    = basiskc - rangemal * multlowKC
+//Keltner Channel Bands Mid
+upperKCm    = basiskc + rangemam * multmidKC
+lowerKCm    = basiskc - rangemam * multmidKC
+//Keltner Channel Bands High
+upperKCh    = basiskc + rangemah * multhighKC
+lowerKCh    = basiskc - rangemah * multhighKC
+
+//------------------------{ Squeeze Basics }------------------------------------
+
+//Squeeze Momentum
+sz          = linreg(src - avg(avg(highest(high, length), lowest(low, length)), ema(close, length)), length, 0)
+//Squeeze Conditions
+sc1         = sz >= 0
+sc2         = sz < 0
+sc3         = sz >= sz[1]
+sc4         = sz < sz[1]
+sc5         = sz < 1
+sc6         = sz > -1
+//Squeeze On
+lowsqz      = lowerBB > lowerKCl and upperBB < upperKCl
+lsf         = lowsqz == false
+midsqz      = lowerBB > lowerKCm and upperBB < upperKCm
+msf         = midsqz == false
+highsqz     = lowerBB > lowerKCh and upperBB < upperKCh
+hsf         = highsqz == false
+
+//-----------------------{ Color Components }-----------------------------------
+
+//Color Conditions
+clr1        = sc1 and sc3 ? #00eeff : 
+   sc1 and sc4 ? #000eff : sc2 and sc4 ? #ff0000 : sc2 and sc3 ? #ffe500 : color.gray
+clr2        = sc1 and sc3 ? #00bcd4 : 
+   sc1 and sc4 ? #0d47a1 : sc2 and sc4 ? #ba68c8 : sc2 and sc3 ? #9c27b0 : #673ab7
+clr3        = sc1 and sc3 ? #15ff00 : sc1 and sc4 ? #388e3c : 
+   sc2 and sc4 ? #f44336 : sc2 and sc3 ? #b71c1c : color.gray
+clr4        = sc1 and sc3 ? #fff59d : 
+   sc1 and sc4 ? #ffd600 : sc2 and sc4 ? #ffcc80 : sc2 and sc3 ? #ff9800 : #702700
+clr5        = sc1 and sc3 ? #2196f3 : 
+   sc1 and sc4 ? #0d47a1 : sc2 and sc4 ? #ef9a9a : sc2 and sc3 ? #d32f2f : #ce93d8
+clr6        = sc5 and sc1 ? #ef6c00 : sc6 and sc2 ? #ef6c00 : sc1 and sc3 ? #fff176 : 
+   sc1 and sc4 ? #ffd600 : sc2 and sc4 ? #ef9a9a : sc2 and sc3 ? #d32f2f : #ffb74d
+choice      = color_1 == 1 ? clr1 : color_1 == 2 ? clr2 : 
+   color_1 == 3 ? clr3 : color_1 == 4 ? clr4 : color_1 == 5 ? clr5 : color_1 == 6 ? clr6 : na
+//Background Conditions
+bg1         = color.gray
+bg2         = #673ab7
+bg3         = color.gray
+bg4         = #ffd600
+bg5         = #ce93d8
+bg6         = #ffb74d
+bgc         = bgoff ? na : color_1 == 1 ? bg1 : color_1 == 2 ? bg2 : 
+   color_1 == 3 ? bg3 : color_1 == 4 ? bg4 : color_1 == 5 ? bg5 : color_1 == 6 ? bg6 : na
+//Background Colors
+bgcolor(color=darkm ? bgc : na, editable=false, transp=95, editable=false)
+bgcolor(bgoff ? na : choice)
+//Squeeze Dot Colors
+sqzproc     = highsqz ? #ffe500 : midsqz ? #ff0000 : lowsqz and lowsqzwht ? color.white : lowsqz ? #000000 : na
+
+//-----------------{ Indicator Components and Plots }---------------------------
+
+//Squeeze Dot Plot Above and Below
+sqzpro      = zerold ? na : highsqz ? highsqz : midsqz ? midsqz : lowsqz ? lowsqz : na
+plotshape(sqzpro, title="Squeeze Dots Top", style=shape.circle, location=location.top, color=sqzproc)
+plotshape(sqzpro, title="Squeeze Dots Bottom", style=shape.circle, location=location.bottom, color=sqzproc)
+
+//Squeeze Dot Plot Zero Line
+nozero      = lowsqzwht == false
+sqzproz     = highsqz ? 0 : midsqz ? 0 : lowsqz ? 0 : na
+plot(zerold ? sqzproz : na, title="Zero Line Squeeze", color=sqzproc, linewidth=5,style=plot.style_circles,transp=0)
+plot(nozero ? 0 : na, title="Zero Line Squeeze", color=color.white, linewidth=1,style=plot.style_line,transp=0)
+
+//Squeeze Plot
+plot(sz, title="Squeeze Momentum", color=choice, style=plot.style_columns, linewidth=1)
+
+//Divergence Formula {Compliments of Ricardo Santos}
+ftf(_src) =>
+    _src[4] < _src[2] and _src[3] < _src[2] and _src[2] > _src[1] and 
+       _src[2] > _src[0]
+fbf(_src) =>
+    _src[4] > _src[2] and _src[3] > _src[2] and _src[2] < _src[1] and 
+       _src[2] < _src[0]
+ffract(_src) =>
+    fbf__1 = fbf(_src)
+    ftf(_src) ? 1 : fbf__1 ? -1 : 0
+fractaltop  = ffract(sz) > 0 ? sz[2] : na
+fractalbot  = ffract(sz) < 0 ? sz[2] : na
+high_prev   = valuewhen(fractaltop, sz[2], 1)
+high_price  = valuewhen(fractaltop, high[2], 1)
+low_prev    = valuewhen(fractalbot, sz[2], 1)
+low_price   = valuewhen(fractalbot, low[2], 1)
+regbeardiv  = fractaltop and high[2] > high_price and sz[2] < high_prev
+hidbeardiv  = fractaltop and high[2] < high_price and sz[2] > high_prev
+regbulldiv  = fractalbot and low[2] < low_price and sz[2] > low_prev
+hidbulldiv  = fractalbot and low[2] > low_price and sz[2] < low_prev
+
+//Divergence Plot
+plot(title='Bearish Fractal', series=drdiv ? fractaltop ? sz[2] : na : na, color=regbeardiv ? choice : na, linewidth=2, offset=-2, editable=false)
+plot(title='Bullish Fractal', series=drdiv ? fractalbot ? sz[2] : na : na, color=regbulldiv ? choice : na, linewidth=2, offset=-2, editable=false)
+plot(title='Bearish Divergence', series=drdiv ? fractaltop ? sz[2] : na : na, style=plot.style_circles, color=regbeardiv ? choice : na, linewidth=3, offset=-2, editable=false)
+plot(title='Bullish Divergence', series=drdiv ? fractalbot ? sz[2] : na : na, style=plot.style_circles, color=regbulldiv ? choice : na, linewidth=3, offset=-2, editable=false)
+
+//------------------------{ Alert Conditions }----------------------------------
+
+//Dot Count Regular
+ll6         = barssince(lsf) == 6
+ml6         = barssince(msf) == 6
+hl6         = barssince(hsf) == 6
+//Dot Count Prolonged
+ll12        = barssince(lsf) == 12
+ml12        = barssince(msf) == 12
+hl12        = barssince(hsf) == 12
+//End Of Squeeze
+eol         = barssince(lowsqz) == 1
+eom         = barssince(midsqz) == 1
+eoh         = barssince(highsqz) == 1
+//Start Of Squeeze
+sol         = barssince(lsf) == 1
+som         = barssince(msf) == 1
+soh         = barssince(hsf) == 1
+
+//-----------------------------{ Alerts }---------------------------------------
+
+//6th Dot Alerts
+alertcondition(ll6, title="6th White Dot", message="Early Squeeze - 6th White Dot")
+alertcondition(ml6, title="6th Red Dot", message="Squeeze - 6th Red Dot")
+alertcondition(hl6, title="6th Yellow Dot", message="Power Squeeze - 6th Yellow Dot")
+//12th Dot Alerts
+alertcondition(ll12, title="12th White Dot", message="Early Squeeze - 12th White Dot")
+alertcondition(ml12, title="12th Red Dot", message="Squeeze - 12th Red Dot")
+alertcondition(hl12, title="12th Yellow Dot", message="Power Squeeze - 12th Yellow Dot")
+//End of Squeeze Alerts
+alertcondition(eol, title="White Dot - End of Squeeze", message="White Dot - End of Early Squeeze")
+alertcondition(eom, title="Red Dot - End of Squeeze", message="Yellow Dot - End of Squeeze")
+alertcondition(eoh, title="Yellow Dot - End of Squeeze", message="Red Dot - End of Power Squeeze")
+//Start of Squeeze Alerts
+alertcondition(sol, title="Early Squeeze Started", message="White Dot - Early Squeeze Started")
+alertcondition(som, title="Squeeze Started", message="Red Dot - Squeeze Started")
+alertcondition(soh, title="Power Squeeze Started", message="Yellow Dot - Power Squeeze Started")
+//Zero Line Alerts
+alertcondition(sz[1] < 0 and sz > 0, title="Zero Line Cross Bullish", message="Zero Line Cross Bullish")
+alertcondition(sz[1] > 0 and sz < 0, title="Zero Line Cross Bearish", message="Zero Line Cross Bearish")

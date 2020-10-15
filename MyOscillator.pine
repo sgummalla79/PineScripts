@@ -3,25 +3,50 @@ study(title="MyOscillator", shorttitle="MO")
 n1 = input(9, "Channel Length")
 n2 = input(26, "Average Length")
 n3 = input(13, "Short length")
+upper_limit = input(80, "Upper Limit")
+lower_limit = input(20, "Lower Limit")
 invert = input(false, "Invert Scale")
 source = hlc3 
 
-tci(src) => ema((src - ema(src, n1)) / (0.025 * ema(abs(src - ema(src, n1)), n1)), n2)+50
-mf(src) => rsi(sum(volume * (change(src) <= 0 ? 0 : src), n3), sum(volume * (change(src) >= 0 ? 0 : src), n3))
-willy(src) => 60 * (src - highest(src, n2)) / (highest(src, n2) - lowest(src, n2)) + 80
-tradition(src) => avg(tci(src),mf(src),rsi(src, n3))
+ttsi(_src, _len0, _len1) =>
+    pc = change(_src) / avg(_src, _src[1])
+    ma0 = ema(pc, _len0)
+    ma1 = ema(ma0, _len1)
+    apc = abs(_src - _src[1])
+    ma2 = ema(apc, _len0)
+    ma3 = ema(ma2, _len1)
+    ttsi = 100 * (ma1 / ma3)
 
-wt1 = tradition(source)
+tci(_src) => 
+    ema((_src - ema(_src, n1)) / (0.025 * ema(abs(_src - ema(_src, n1)), n1)), n2) + 50
+
+mf(_src) => 
+    rsi(sum(volume * (change(_src) <= 0 ? 0 : _src), n3), sum(volume * (change(_src) >= 0 ? 0 : _src), n3))
+
+willy(_src) => 
+    60 * (_src - highest(_src, n2)) / (highest(_src, n2) - lowest(_src, n2)) + 80
+
+csi(_src) => 
+    avg(rsi(_src, n3), ttsi(_src, n1, n2) * 50 + 50)
+
+godmode(_src) => 
+    avg(tci(_src), csi(_src), mf(_src), willy(_src))
+
+tradition(_src) => 
+    avg(tci(_src), mf(_src), rsi(_src, n3))
+
+wt1 = godmode(source)
 wt2 = sma(wt1,6)
-wt3 = ema((wt1-wt2)*2+50,n3)
+wt3 = linreg((wt1-wt2)*2+50,n3,0)
+//wt3 = ema((wt1-wt2)*2+50,n3)
 
 wt1 := invert ? 100-wt1 : wt1 
 wt2 := invert ? 100-wt2 : wt2
 wt3 := invert ? 100-wt3 : wt3
 
-extended1 = wt2<25 ? wt2+5 : wt2>75 ? wt2-5 : na
-extended2 = wt2<20 ? wt2+5 : wt2>80 ? wt2-5 : na
-extended3 = wt2<15 ? wt2+5 : wt2>85 ? wt2-5 : na
+extended1 = wt2<lower_limit+5 ? wt2+5 : wt2>upper_limit-5 ? wt2-5 : na
+extended2 = wt2<lower_limit ? wt2+5 : wt2>upper_limit ? wt2-5 : na
+extended3 = wt2<lower_limit-5 ? wt2+5 : wt2>upper_limit+5 ? wt2-5 : na
 
 wt3_color = wt3 < 50 ? (wt3 > wt3[1] ? color.white : invert ? color.yellow : color.red) : (wt3 < wt3[1] ? color.white : invert ? color.blue : color.green)
 
@@ -33,6 +58,6 @@ plot(extended1, title="Caution!", color=color.aqua, style=plot.style_circles, li
 plot(extended2, title="Caution!", color=color.yellow, style=plot.style_circles, linewidth=2)
 plot(extended3, title="Caution!", color=color.red, style=plot.style_circles, linewidth=2)
 
-hline(80, linestyle=hline.style_dashed, color=color.red)
+hline(upper_limit, linestyle=hline.style_dashed, color=color.red)
 hline(50, linestyle=hline.style_dashed, color=color.blue)
-hline(20, linestyle=hline.style_dashed, color=color.green )
+hline(lower_limit, linestyle=hline.style_dashed, color=color.green)

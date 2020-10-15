@@ -1,0 +1,74 @@
+//@version=3
+study(shorttitle = "TTS", title="Complete Trend Trading System [Fhenry0331]", overlay=false)
+
+myemalength = input(26) 
+myema = ema(low, 26)
+
+mvwaplength = input(13) 
+mvwap= ema(vwap, mvwaplength)
+
+
+
+price=close
+
+src = close, len = input(14, minval=1, title="Length")
+up = rma(max(change(src), 0), len)
+down = rma(-min(change(src), 0), len)
+rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+
+plot(rsi, color=white)
+
+change1 = rsi > 60 ? green :na
+change2= rsi < 40 ? red: na
+
+p1 = plot(rsi, style=linebr, linewidth=4, color=change1)
+p2 = plot(rsi, style=linebr, linewidth=4, color=change2)
+
+
+band1 = hline(70)
+band2 = hline(30)
+band3 = hline(55)
+band4 = hline (45)
+midline = hline (50)
+
+fill(band1, band3, color=green, transp=90)
+fill(band2, band4, color=red, transp=90)
+fill(band3, band4, color=black, transp=90)
+
+cond1 = rsi > 55 and close > myema ? 1 : 0
+barcolor(cond1 ? green : na) 
+
+cond2 = rsi < 45 and close < myema ? 1 : 0
+barcolor(cond2 ? red : na) 
+
+cond3 = rsi < 50 and close < myema ? 1 : 0
+barcolor(cond3 ? yellow : na)
+
+cond4 = rsi > 50 and close > myema ? 1 : 0
+barcolor(cond4 ? orange : na)
+
+cond5 = rsi < 50 and close > myema ? 1 : 0
+barcolor(cond5 ? black : na)
+
+cond6 = rsi > 50 and close < myema ? 1 : 0
+barcolor(cond6 ? black : na)
+
+
+cond7 = rsi > 50 and close < mvwap and close > myema ? 1 : 0
+plotchar(cond7, title="Buy pullback", offset=0, char='BuyPB',color=lime, transp=0)
+
+
+cond8 = rsi < 50 and close > mvwap and close < myema ? 1 : 0
+plotchar(cond8, title="Sell pullback", offset=0, char='SellPB', color=red, transp=0)
+
+cond9 = rsi > 50 and close < mvwap and close > myema ? 1 : 0
+plotshape(cond9, style=shape.triangleup, location=location.bottom, color=lime, transp=0, offset=0)
+
+cond10 = rsi < 50 and close > mvwap and close < myema ? 1 : 0
+plotshape(cond10, style=shape.triangledown, location=location.bottom, color=red, transp=0, offset=0)
+
+cond11 = rsi > 75 and close > myema ? 1 : 0
+plotchar(cond11, title="take some profits", offset=0, char='TP', color=blue, transp=0)
+
+cond12 = rsi < 25 and close < myema ? 1 : 0
+plotchar(cond12, title="take some profits", offset=0, char='TP', color=purple, transp=0)

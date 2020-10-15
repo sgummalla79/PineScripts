@@ -1,0 +1,92 @@
+//@version=4
+study("(JS) Tip-and-Dip Oscillator 2.0", shorttitle="(JS)TDO2", overlay=false)
+//Inputs
+lkbk = input(title="Lookback Period", defval=40, minval=1)
+smooth = input(defval=2, title="Smoothing Value", maxval=4, minval=1)
+range = input(defval=1, title="Color Range", step=0.1)
+colsch = input(defval=1, title="Color Scheme", maxval=4, minval=1)
+dark = input(defval=true, type=input.bool, title="Using Dark Mode")
+//Lowest Close Standard Deviation
+wvfL = (lowest(close, lkbk) - high) / lowest(close, lkbk) * -100
+sDevL = 3 * stdev(wvfL, lkbk)
+midLineL = sma(wvfL, lkbk)
+lowerBandL = midLineL - sDevL
+upperBandL = midLineL + sDevL
+//Highest Close Standard Deviation
+wvfH = (highest(close, lkbk) - low) / highest(close, lkbk) * -100
+sDevH = 3 * stdev(wvfH, lkbk)
+midLineH = sma(wvfH, lkbk)
+lowerBandH = midLineH - sDevH
+upperBandH = midLineH + sDevH
+//High and Low Ranges
+rangeHighL = highest(wvfL, lkbk) * 0.95
+rangeLowL = lowest(wvfL, lkbk) * 1.2
+rangeHighH = highest(wvfH, lkbk) * 0.8
+rangeLowH = lowest(wvfH, lkbk) * 1.05
+//EMA Smoothing
+ema = smooth + 1
+newL = ema(wvfL, ema)
+newH = ema(wvfH, ema)
+new = ema(wvfL - wvfH * -1, ema)
+//Final Histogram
+histo1 = new + newL
+histo2 = new + newH
+histo3 = ema(histo1 / 10 + histo2 / 10, ema)
+//Histogram Color Conditions
+hc1 = histo3 > range ? #4caf50 : 
+   histo3 > range * -1 ? #ffeb3b : histo3 <= range * -1 ? #f44336 : na
+hc2 = histo3 > range ? #2196f3 : 
+   histo3 > range * -1 ? #9c27b0 : histo3 <= range * -1 ? #e91e63 : na
+hc3 = histo3 > range ? #ffeb3b : 
+   histo3 > range * -1 ? #f44336 : histo3 <= range * -1 ? #ff9800 : na
+hc4 = histo3 > range ? color.white : 
+   histo3 > range * -1 ? color.silver : histo3 <= range * -1 ? color.gray : na
+hcol = colsch == 1 ? hc1 : colsch == 2 ? hc2 : colsch == 3 ? hc3 : hc4
+//Conditions For Background and Arrows
+top1 = histo3 >= 0
+top2 = histo3 < histo3[1]
+top3 = histo3 > histo3[1]
+top4 = histo3[2] > histo3[1]
+bot1 = histo3 < 0
+bot2 = histo3 > histo3[1]
+bot3 = histo3 < histo3[1]
+bot4 = histo3[2] < histo3[1]
+topc = histo3[1] > histo3[2]
+botc = histo3[1] < histo3[2]
+//Arrow Conditions
+chrt = top1 and top2 and topc
+chrb = bot1 and bot2 and botc
+chrtb = top1 and top3 and top4
+chrbt = bot1 and bot3 and bot4
+s1 = smooth == 1
+s4 = smooth == 4
+ac1 = chrb ? #81c784 : chrtb ? #4caf50 : chrt ? #ef9a9a : #f44336
+ac2 = chrb ? #64b5f6 : chrtb ? #2196f3 : chrt ? #f48fb1 : #e91e63
+ac3 = chrb ? #fff176 : chrtb ? #ffeb3b : chrt ? #ffb74d : #ff9800
+ac4 = color.aqua
+arwcol = colsch == 1 ? ac1 : colsch == 2 ? ac2 : colsch == 3 ? ac3 : ac4
+//Background Colors and Conditions {Note: adding the gray makes the colors pop more with a dark bg}
+bgcolor(colsch == 4 ? na : dark ? color.gray : na, editable=false)
+bg1 = top1 and top3 ? #4caf50 : 
+   top1 and top2 ? #1b5e20 : bot1 and bot3 ? #f44336 : bot1 and bot2 ? #b71c1c : na
+bg2 = top1 and top3 ? #2196f3 : 
+   top1 and top2 ? #0d47a1 : bot1 and bot3 ? #e91e63 : bot1 and bot2 ? #880e4f : na
+bg3 = top1 and top3 ? #ffeb3b : 
+   top1 and top2 ? #fbc02d : bot1 and bot3 ? #ff9800 : bot1 and bot2 ? #e65100 : na
+bg4 = top1 and top3 ? color.white : top1 and top2 ? color.silver : 
+   bot1 and bot3 ? color.gray : bot1 and bot2 ? color.black : na
+bcol = colsch == 1 ? bg1 : colsch == 2 ? bg2 : colsch == 3 ? bg3 : bg4
+bgcolor(bcol)
+//Final Plot
+hline(0, title="Zero Line", color=color.white, linestyle=hline.style_dashed, linewidth=1)
+plot(histo3, style=plot.style_columns, color=hcol, linewidth=1, transp=50)
+//Arrow Plots
+plotchar(chrb, title="Downtrend Bottom", char="↑", location=location.bottom, color=arwcol, size=size.tiny, offset=s1 ? -1 : s4 ? -3 : -2)
+plotchar(chrtb, title="Uptrend Bottom", char="▲", location=location.bottom, color=arwcol, size=size.tiny, offset=s1 ? -1 : s4 ? -3 : -2)
+plotchar(chrt, title="Uptrend Top", char="↓", location=location.top, color=arwcol, size=size.tiny, offset=s1 ? -1 : s4 ? -3 : -2)
+plotchar(chrbt, title="Downtrend Top", char="▼", location=location.top, color=arwcol, size=size.tiny, offset=s1 ? -1 : s4 ? -3 : -2)
+//Alerts
+alertcondition(chrb, "Downtrend Bottom", "A downtrend bottom has been detected!")
+alertcondition(chrtb, "Uptrend Bottom", "An uptrend bottom has been detected!")
+alertcondition(chrt, "Uptrend Top", "An uptrend top has been detected!")
+alertcondition(chrbt, "Downtrend Top", "A downtrend top has been detected!")

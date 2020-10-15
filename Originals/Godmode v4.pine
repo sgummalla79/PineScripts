@@ -1,0 +1,106 @@
+//Massive thank you to LEGION, LazyBear, xSilas, Ni6HTH4wK, sco77m4r7and, SNOW_CITY, oh92,
+//... alexgrover, cI8DH and DonovanWall for doing the initial builds, building indicators
+//... that I incorporated into this script or just generally giving me a hand when needed.
+//
+//This version of Godmode adds the ability to use any of the TradingView tickers as a
+//... benchmark against whatever type of asset you're trading. Possible to pillow noise 
+//... and reduce lag. This can also be useful, if you apply the indicator twice, for checking to see if
+//... there's a relationship between two market caps. (For instance, check out the BTC
+//... cap against the USDT dominance for a very strong inverse relationship; this can
+//... at times give early signals for a pump or dump). <-- ema((wt0 - wt1) * 2 + 50, len2)
+//... --> has been changed to <-- linreg((wt0 - wt1) * 2 + 50, len2, 0) --> in order to
+//... calculate a smoother slope. Useful for giving warnings to buy or sell. The option
+//... to smooth the plots has been added. Tried to make the color-scheme a little more familiar
+//... and to embolden the important plots (wt0 and wt1). Last but not least I added a a function for
+//... https://www.tradingview.com/script/kfFjkxCa-True-Relative-Strength-Index-True-RSI-TRSI-cI8DH/).
+//... This removes the bullish bias from the TSI. I didn't apply the same logic to the RSI
+//... as this had unintended consequences.
+//
+//There will be further builds centered around Godmode, but I'd love to hear the community's
+//... opinion on how they'd like to see the build develop. One thing I was working on was
+//... to allow the user to correlate two benchmarks against one another.
+//
+//I was tentative to call this version 4, but I hope my additions have done at least a
+//... little justice in that regard. I welcome any and all suggestions. Thank you and
+//... enjoy.
+
+//@version=3
+tag0 = "Godmode"
+
+study(tag0 + " 4.0.0", tag0 + " Oscillator", false)
+
+//Interior
+ben0 = input("CRYPTOCAP:BTC", "Benchmark", string)
+src0 = input(hlc3, "Source")
+len0 = input(9, "Channel Length")
+len1 = input(26, "Average Length")
+len2 = input(13, "Short length")
+smo0 = input(false, "Smoothing")
+
+//Engine
+src1 = ben0 != tickerid ? security(ben0, period, src0) : security(tickerid, period, src0)
+
+ttsi(_src, _len0, _len1) =>
+    pc = change(_src) / avg(_src, _src[1])
+    ma0 = ema(pc, _len0)
+    ma1 = ema(ma0, _len1)
+    apc = abs(_src - _src[1])
+    ma2 = ema(apc, _len0)
+    ma3 = ema(ma2, _len1)
+    ttsi = 100 * (ma1 / ma3)
+
+tci(_src) => 
+    ema((_src - ema(_src, len0)) / (0.025 * ema(abs(_src - ema(_src, len0)), len0)), len1) + 50
+
+mf(_src) => 
+    rsi(sum(volume * (change(_src) <= 0 ? 0 : _src), len2), sum(volume * (change(_src) >= 0 ? 0 : _src), len2))
+
+willy(_src) => 
+    60 * (_src - highest(_src, len1)) / (highest(_src, len1) - lowest(_src, len1)) + 80
+
+csi(_src) => 
+    avg(rsi(_src, len2), ttsi(_src, len0, len1) * 50 + 50)
+
+godmode(_src) => 
+    avg(tci(_src), csi(_src), mf(_src), willy(_src))
+
+tradition(_src) => 
+    avg(tci(_src), mf(_src), rsi(_src, len2))
+
+wt0 = ben0 != tickerid ? godmode(src1) : tradition(src1)
+swt0 = sma(wt0, len0)
+wt1 = ema(wt0, 6)
+swt1 = sma(wt1, len0)
+wt2 = linreg((wt0 - wt1) * 2 + 50, len2, 0)
+swt2 = sma(wt2, len0)
+
+extended = smo0 ? (swt1 < 35 ? swt1 - 5 : swt1 > 65 ? swt1 + 5 : na) : wt1 < 30 ? wt1 - 5 : wt1 > 70 ? wt1 + 5 : na
+extended2 = smo0 ? (swt1 < 30 ? swt1 - 5 : swt1 > 70 ? swt1 + 5 : na) : wt1 < 25 ? wt1 - 5 : wt1 > 75 ? wt1 + 5 : na
+extended3 = smo0 ? (swt1 < 25 ? swt1 - 5 : swt1 > 75 ? swt1 + 5 : na) : wt1 < 20 ? wt1 - 5 : wt1 > 80 ? wt1 + 5 : na
+extended4 = smo0 ? (swt1 < 20 ? swt1 - 5 : swt1 > 80 ? swt1 + 5 : na) : wt1 < 15 ? wt1 - 5 : wt1 > 85 ? wt1 + 5 : na
+
+//Chassis
+col1 = wt2 > 50 ? green : red
+col2 = wt2[0] > wt2[1] ? green : red
+col3 = smo0 ? ((extended or extended2 or extended3 or extended4) and swt1 > 50 ? red : na) : (extended or extended2 or extended3 or extended4) and wt1 > 50 ? red : 
+       smo0 ? ((extended or extended2 or extended3 or extended4) and swt1 < 50 ? green : na) : (extended or extended2 or extended3 or extended4) and wt1 < 50 ? green : na
+col4 = swt2 > 50 ? green : red
+col5 = swt2[0] > swt2[1] ? green : red
+
+plot(smo0 ? swt0 : wt0, "Wave-Trend", black, 2)
+plot(smo0 ? swt1 : wt1, "Wave-Trend Signal", maroon, 2)
+plot(smo0 ? swt2 : wt2, "Wave-Trend Slope Range", smo0 ? col4 : col1, 1, columns, false, 92, 50)
+plot(smo0 ? swt2 : wt2, "Wave-Trend Slope Direction", smo0 ? col5 : col2, 1, columns, false, 92, 50)
+plot(smo0 ? swt2[1] : wt2[1], "Wave-Trend Slope Direction Signal", smo0 ? col5 : col2, 1, line, false, 86)
+plot(extended, "Caution", col3, 2, circles, false, 80)
+plot(extended2, "Caution", col3, 2, circles, false, 80)
+plot(extended3, "Caution", col3, 2, circles, false, 80)
+plot(extended4, "Caution", col3, 2, circles, false, 80)
+
+a = plot(100, "Upper Wave-Trend Limit", purple)
+b = plot(85, "Upper Wave-Trend Threshold", color(maroon, 95))
+c = plot(15, "Lower Wave-Trend Threshold", color(olive, 95))
+d = plot(0, "Lower Wave-Trend Limit", navy)
+
+fill(a, b, maroon, 93, "Upper Fill")
+fill(c, d, olive, 93, "Lower Fill")

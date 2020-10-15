@@ -1,0 +1,707 @@
+//@version=4
+study(title="Market Pulse", shorttitle="MP", overlay=true)
+
+//1. Simple Moving Average
+//2. Exponential Moving Average
+//3. Hull Moving Average
+//4. Weighted Moving Average
+//5. Voulme Weighted Moving Average
+
+calc_ma(_src, _len, _type, _res) =>
+    symSrc = _res == '' ? security(syminfo.tickerid, timeframe.period, _src) : security(syminfo.tickerid, _res, _src)
+    _type == '' ? _src : _type == 'SMA' ? sma(symSrc,_len) : _type == 'EMA' ? ema(symSrc,_len) : _type == 'WMA' ? wma(symSrc, _len) : _type == 'VWMA' ? vwma(symSrc, _len) : rma(symSrc, _len)
+
+lime      = #15ff00
+green     = #53b987
+brightred = #e91e63
+red       = #eb4d5c
+yellgreen = color.blue
+yellow    = #ffeb3b
+yellred   = color.purple
+white     = color.white
+
+dmi_bars_plot = input(false, title="Plot DMI")
+htf_plot = input(false, title="Plot High Time Trend") 
+tc_plot = input(true, title="Plot Trend Confirmation") 
+coral_plot =input(false, title="Plot Coral")
+
+dmi_bars_ebc = input(false, title="Color Bars Based on DMI")
+coral_ebc=input(false, title="Color Bars Based on Coral Indicator")
+tts_ebc = input(true, title="Color Bars Based on Trend Trade System") 
+tc_ebc = input(false, title="Color Bars Based on Trend Confirmation System") 
+
+
+// ############# Market Pulse ////////
+pulse_show = input(false, title="Show Market Pulse")
+pluse_src = close
+pulse_length = input(defval = 10, title = "Period Length", minval=1)
+pulse_tmp1 = max(pluse_src-pluse_src[1],0)
+pulse_tmp2 = max(pluse_src[1]-pluse_src,0)
+pulse_d2 = sum(pulse_tmp1, pulse_length)
+pulse_d4 = sum(pulse_tmp2, pulse_length)
+pulse_ad3 = (pulse_d2 + pulse_d4 == 0) ? 0 : (pulse_d2 - pulse_d4) / (pulse_d2 + pulse_d4) * 100
+pulse_coeff = 2 / (pulse_length + 1) * abs(pulse_ad3) / 100
+pulse_asd = float(na)
+pulse_asd := (pulse_coeff * pluse_src) + ((1 - pulse_coeff) * nz(pulse_asd[1])) // Calculate moving average
+
+pulse_vwma8 = sum(volume * close, 8) / sum(volume, 8)
+pulse_vwma21 = sum(volume * close, 21) / sum(volume, 21)
+pulse_vwma34 = sum(volume * close, 34) / sum(volume, 34)
+pulse_bullish = pulse_vwma8 > pulse_vwma21 and pulse_vwma21 > pulse_vwma34 ? 1 : 0
+pulse_bearish = pulse_vwma8 < pulse_vwma21 and pulse_vwma21 < pulse_vwma34 ? 1 : 0
+pulse_distribution = not pulse_bullish and not pulse_bearish ? 1 : 0
+
+pulse_asd_c = pulse_bearish and close <= pulse_asd ? color.red : pulse_bullish and close >= pulse_asd ? color.green : color.gray
+plot(pulse_show ? pulse_asd : na, title="Variable Moving Average", color=pulse_asd_c, transp = 0, style = plot.style_line, linewidth=2, editable=false)
+
+//################### Simple Breakout #####################
+smpl_break_out_show = input(false, title="Show Simple Breakout")
+smpl_break_out_src = close
+smpl_break_out_sma10 = sma(smpl_break_out_src, 10)
+smpl_break_out_sma30 = sma(smpl_break_out_src, 30)
+smpl_break_out_sma100 = sma(smpl_break_out_src, 100)
+smpl_break_out_xHH = highest(high, 21)
+smpl_break_out_xLL = lowest(low, 21)
+smpl_break_out_xValue = smpl_break_out_xHH - smpl_break_out_xLL
+smpl_break_out_stofastK = (close - smpl_break_out_xLL) / smpl_break_out_xValue * 100
+smpl_break_out_stosloK = sma(smpl_break_out_stofastK, 3)
+smpl_break_out_stoSloD = sma(smpl_break_out_stosloK, 3)
+smpl_break_out_stosloOB = 80
+smpl_break_out_stosloOS = 20
+[smpl_break_out_macdLine, smpl_break_out_signalLine, smpl_break_out_MH] = macd(close, 12, 26, 9)
+
+smpl_break_out_bullish_signal = (close > smpl_break_out_sma10 and close[1] <= smpl_break_out_sma10[1]) and (close > smpl_break_out_sma100) and smpl_break_out_stosloK < smpl_break_out_stosloOB and smpl_break_out_stoSloD < smpl_break_out_stosloOB and smpl_break_out_MH > 0 ? 1 : 0
+smpl_break_out_bearish_signal = (close < smpl_break_out_sma10 and close[1] >= smpl_break_out_sma10[1]) and (close < smpl_break_out_sma100) and smpl_break_out_stosloK > smpl_break_out_stosloOS and smpl_break_out_stoSloD > smpl_break_out_stosloOS and smpl_break_out_MH < 0 ? 1 : 0
+
+plotshape(smpl_break_out_show and smpl_break_out_bullish_signal, style=shape.triangleup, location=location.belowbar, color=lime, transp=0, size=size.tiny, editable=false)
+plotshape(smpl_break_out_show and smpl_break_out_bearish_signal, style=shape.triangledown, location=location.abovebar, color=brightred, transp=0, size=size.tiny, editable=false)
+
+//################### color bars based on dmi #####################
+dmi_bars_src = close
+dmi_bars_length = 14
+dmi_bars_ADXLevels = 20
+dmi_bars_HiDiff = high - high[1]
+dmi_bars_LoDiff = low[1] - low
+dmi_bars_PlusDM = dmi_bars_HiDiff > dmi_bars_LoDiff and dmi_bars_HiDiff > 0 ? dmi_bars_HiDiff : 0
+dmi_bars_MinusDM = dmi_bars_LoDiff > dmi_bars_HiDiff and dmi_bars_LoDiff > 0 ? dmi_bars_LoDiff : 0
+
+//wilders moving average
+dmi_bars_wild_plus_dm = float(na)
+dmi_bars_wild_plus_dm := nz(dmi_bars_wild_plus_dm[1])+(dmi_bars_PlusDM-nz(dmi_bars_wild_plus_dm[1]))/dmi_bars_length
+
+dmi_bars_wild_minus_dm = float(na)
+dmi_bars_wild_minus_dm := nz(dmi_bars_wild_minus_dm[1])+(dmi_bars_MinusDM-nz(dmi_bars_wild_minus_dm[1]))/dmi_bars_length
+
+dmi_bars_Plus = 100 * dmi_bars_wild_plus_dm
+dmi_bars_Minus = 100 * dmi_bars_wild_minus_dm
+dmi_bars_BullishSignal = crossover(dmi_bars_Plus,dmi_bars_Minus)
+dmi_bars_BearishSignal = crossunder(dmi_bars_Plus,dmi_bars_Minus)
+
+dmi_bars_DX = (dmi_bars_Plus + dmi_bars_Minus > 0) ? 100 * abs(dmi_bars_Plus - dmi_bars_Minus) / (dmi_bars_Plus + dmi_bars_Minus) : 0
+
+dmi_bars_ADX = float(na)
+dmi_bars_ADX := nz(dmi_bars_ADX[1])+(dmi_bars_DX-nz(dmi_bars_ADX[1]))/dmi_bars_length
+
+dmi_bars_BullishZone = dmi_bars_Plus > dmi_bars_Minus and dmi_bars_ADX >= dmi_bars_ADXLevels ? true : false
+dmi_bars_BearishZone = dmi_bars_Plus < dmi_bars_Minus and dmi_bars_ADX >= dmi_bars_ADXLevels ? true : false
+dmi_bars_NeutralZone = not dmi_bars_BullishZone and not dmi_bars_BearishZone ? true : false
+
+dmi_bars_color = dmi_bars_NeutralZone ? color.yellow : dmi_bars_BullishZone ? color.green : dmi_bars_BearishZone ? color.red : na
+barcolor(dmi_bars_ebc ? dmi_bars_color : na, editable=false)
+plotshape(dmi_bars_plot and not dmi_bars_ebc ? 1 : na,color=dmi_bars_color, location=location.belowbar, style=shape.circle, editable=false)
+
+//################ Bollinger Bands ##################
+bb_src = close
+bb_show = input(false, title="Show Bollinger Bands")
+bb_length = input(title="Bollinger Band Length", defval=20,type=input.integer)
+bb_stdDev_factor = input(title="Standard Deviation", defval=2,type=input.integer)
+
+bb_stdev = stdev(bb_src, bb_length)
+bb_basis = calc_ma(bb_src, bb_length, 'SMA', '')
+bb_upper = bb_basis + bb_stdDev_factor * bb_stdev
+bb_lower = bb_basis - bb_stdDev_factor * bb_stdev
+
+bb_p1 = plot(bb_show ? bb_upper : na, color=color.green, title="Upper Band", editable=false)
+plot(bb_show ? bb_basis : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+bb_p2 = plot(bb_show ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
+fill(bb_p1, bb_p2, color=color.green, title="Background", transp=90, editable=false)
+
+//########################### Super Trend ########################################
+
+super_trend_show = input(false, title="Show Super Trend")
+super_trend_multiplier = input(3, type=input.float, title="Multiplier")
+super_trend_atr_len = input(7, minval=1,maxval = 100, title="ATR Length")
+
+super_trend_up=hl2-(super_trend_multiplier*atr(super_trend_atr_len))
+super_trend_dn=hl2+(super_trend_multiplier*atr(super_trend_atr_len))
+
+super_trend_up_trend = float(na)
+super_trend_up_trend := close[1]>super_trend_up_trend[1]? max(super_trend_up,super_trend_up_trend[1]) : super_trend_up
+
+super_trend_down_trend = float(na)
+super_trend_down_trend := close[1]<super_trend_down_trend[1]? min(super_trend_dn,super_trend_down_trend[1]) : super_trend_dn
+
+super_trend_current_trend = float(na)
+super_trend_current_trend := close > super_trend_down_trend[1] ? 1: close< super_trend_up_trend[1]? -1: nz(super_trend_current_trend[1],1)
+
+super_trend_tsl = super_trend_current_trend==1? super_trend_up_trend: super_trend_down_trend
+super_trend_line_color = super_trend_current_trend == 1 ? color.green : color.red
+
+plot(super_trend_show ? super_trend_tsl : na, color = super_trend_line_color , style = plot.style_line , linewidth = 2,title = "SuperTrend", editable=false)
+
+//###################EMA Strategy#####################
+
+ema_strategy_show = input(false, title="Show Exponential Moving Averages Strategy")
+ema_strategy_src = close
+ema_strategy_8 = calc_ma(ema_strategy_src, 8, 'EMA', '')
+ema_strategy_13 = calc_ma(ema_strategy_src, 13, 'EMA', '')
+ema_strategy_21 = calc_ma(ema_strategy_src, 21, 'EMA', '')
+ema_strategy_55 = calc_ma(ema_strategy_src, 55, 'EMA', '')
+ema_strategy_buy_cond_ema = ema_strategy_8 > ema_strategy_13 and ema_strategy_13 > ema_strategy_21 and crossover(ema_strategy_21, ema_strategy_55)
+ema_strategy_sell_cond_ema = ema_strategy_8 < ema_strategy_13 and ema_strategy_13 < ema_strategy_21 and crossunder(ema_strategy_21, ema_strategy_55)
+
+plotshape(ema_strategy_show and ema_strategy_buy_cond_ema ? 1 : 0,style=shape.triangleup,color=color.white,location=location.belowbar,transp=0, size=size.small, title="EMA Buy Strategy",editable=false)
+plotshape(ema_strategy_show and ema_strategy_sell_cond_ema ? -1 : 0,style=shape.triangledown,color=color.white,location=location.abovebar,transp=0, size=size.small, title="EMA Sell Strategy",editable=false)
+
+//################### Trend Trade System #####################
+tts_src=close
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_ema_val = calc_ma(low, tts_ema_length, 'EMA', '')
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap_val = calc_ma(vwap, tts_vwap_length, 'EMA', '')
+tts_rsi_len = input(14, minval=1, title="Trend Trade System RSI Length")
+tts_up = rma(max(change(tts_src), 0), tts_rsi_len)
+tts_down = rma(-min(change(tts_src), 0), tts_rsi_len)
+tts_rsi = (tts_down == 0) ? 100 : tts_up == 0 ? 0 : 100 - (100 / (1 + tts_up / tts_down))
+
+plot(tts_vwap_val, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(tts_ema_val, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line", display = display.none)
+
+tts_cond1 = tts_rsi > 55 and close > tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond1 ? color.lime : na, editable=false) 
+
+tts_cond2 = tts_rsi < 45 and close < tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond2 ? color.red : na, editable=false) 
+
+tts_cond3 = tts_rsi < 50 and close < tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond3 ? color.orange : na, editable=false)
+
+tts_cond4 = tts_rsi > 50 and close > tts_ema_val ? 1 : 0
+barcolor(tts_ebc and tts_cond4 ? color.teal : na, editable=false)
+
+tts_cond5 = (tts_rsi < 50 and close > tts_ema_val) or (tts_rsi > 50 and close < tts_ema_val)? 1 : 0
+barcolor(tts_ebc and tts_cond5 ? color.white : na, editable=false)
+
+//################### Coral Indicator #####################
+coral_src=close
+coral_sm =input(21, title="Coral Indicator Smoothing Period")
+coral_cd = input(0.4, title="Coral Indicator Constant D")
+
+coral_di = (coral_sm - 1.0) / 2.0 + 1.0
+coral_c1 = 2 / (coral_di + 1.0)
+coral_c2 = 1 - coral_c1
+coral_c3 = 3.0 * (coral_cd * coral_cd + coral_cd * coral_cd * coral_cd)
+coral_c4 = -3.0 * (2.0 * coral_cd * coral_cd + coral_cd + coral_cd * coral_cd * coral_cd)
+coral_c5 = 3.0 * coral_cd + 1.0 + coral_cd * coral_cd * coral_cd + 3.0 * coral_cd * coral_cd
+
+coral_i1 = float(na)
+coral_i1 := coral_c1*coral_src + coral_c2*nz(coral_i1[1])
+
+coral_i2 = float(na)
+coral_i2 := coral_c1*coral_i1 + coral_c2*nz(coral_i2[1])
+
+coral_i3 = float(na)
+coral_i3 := coral_c1*coral_i2 + coral_c2*nz(coral_i3[1])
+
+coral_i4 = float(na)
+coral_i4 := coral_c1*coral_i3 + coral_c2*nz(coral_i4[1])
+
+coral_i5 = float(na)
+coral_i5 := coral_c1*coral_i4 + coral_c2*nz(coral_i5[1])
+
+coral_i6 = float(na)
+coral_i6 := coral_c1*coral_i5 + coral_c2*nz(coral_i6[1])
+
+bfr = -coral_cd*coral_cd*coral_cd*coral_i6 + coral_c3*(coral_i5) + coral_c4*(coral_i4) + coral_c5*(coral_i3)
+// --------------------------------------------------------------------------
+// For the Pinescript coders: Determining trend based on the mintick step. 
+// --------------------------------------------------------------------------
+//bfrC = bfr - nz(bfr[1]) > syminfo.mintick ? green : bfr - nz(bfr[1]) < syminfo.mintick ? color.red : color.blue
+coral_bfrC = bfr > nz(bfr[1]) ? lime : bfr < nz(bfr[1])  ? brightred : color.blue
+coral_tc=coral_ebc? na :coral_bfrC
+plot(coral_plot ? bfr : na, title="Trend", linewidth=3, style=plot.style_circles, color=coral_tc, editable=false)
+barcolor(coral_plot and coral_ebc ? coral_bfrC : na, editable=false)
+
+//############### high time frame trend ######
+//Inputs
+int   htf_len        = input(14, title="DMI Length")
+int   htf_adxl       = input(20, title="ADX Length")
+int   htf_pct        = input(defval=500,title="Volume Spike Above Average Percentage")
+int   htf_lkbk       = input(defval=21, title="Highs and Lows Lookback Period")
+int   htf_start      = input(30,title="X Axis Starting Point")
+
+//{Volume Spike Code}
+
+//Volume Spike formula
+htf_pctg  = (htf_pct/100) * sma(volume,50)
+htf_spike = volume > (sma(volume,50) + htf_pctg)
+
+//{ADX and DMI Code}
+
+//ADX and DMI
+htf_up      = change(high)
+htf_down    = -change(low)
+htf_plusDM  = na(htf_up) ? na : (htf_up > htf_down and htf_up > 0 ? htf_up : 0)
+htf_minusDM = na(htf_down) ? na : (htf_down > htf_up and htf_down > 0 ? htf_down : 0)
+htf_trur    = rma(tr, htf_len)
+htf_plus    = fixnan(100 * rma(htf_plusDM, htf_len) / htf_trur)
+htf_minus   = fixnan(100 * rma(htf_minusDM, htf_len) / htf_trur)
+htf_sum     = htf_plus + htf_minus
+htf_adx     = 100 * rma(abs(htf_plus - htf_minus) / (htf_sum == 0 ? 1 : htf_sum), htf_adxl)
+
+//Color Presets
+htf_lime      = #15ff00
+htf_green     = #53b987
+htf_yellgreen = #9fe950
+htf_yellow    = #ffeb3b
+htf_brightred = #e91e63
+htf_red       = #eb4d5c
+htf_yellred   = #ff9542
+htf_white     = color.white
+
+//Conditions For Bar Colors
+htf_s1 = htf_plus > htf_minus
+htf_s2 = htf_minus > htf_plus
+htf_s3 = htf_plus == htf_minus
+htf_s4 = htf_adx < 20
+htf_s5 = htf_plus > 30
+htf_s6 = htf_minus > 30
+htf_s7 = htf_plus < 15
+htf_s8 = htf_minus < 15
+
+//ADX Time Frames
+htf_ADXMin5    = security(syminfo.tickerid, "5", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXMin15   = security(syminfo.tickerid, "15", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXMin30   = security(syminfo.tickerid, "30", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXMin60   = security(syminfo.tickerid, "60", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXMin240  = security(syminfo.tickerid, "240", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXDaily   = security(syminfo.tickerid, "D", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXWeekly  = security(syminfo.tickerid, "W", htf_adx, lookahead=barmerge.lookahead_on)
+htf_ADXMonthly = security(syminfo.tickerid, "M", htf_adx, lookahead=barmerge.lookahead_on)
+
+//D+ Time Frames
+htf_PlusMin5    = security(syminfo.tickerid, "5", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusMin15   = security(syminfo.tickerid, "15", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusMin30   = security(syminfo.tickerid, "30", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusMin60   = security(syminfo.tickerid, "60", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusMin240  = security(syminfo.tickerid, "240", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusDaily   = security(syminfo.tickerid, "D", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusWeekly  = security(syminfo.tickerid, "W", htf_plus, lookahead=barmerge.lookahead_on)
+htf_PlusMonthly = security(syminfo.tickerid, "M", htf_plus, lookahead=barmerge.lookahead_on)
+
+//D- Time Frames
+htf_MinusMin5    = security(syminfo.tickerid, "5", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusMin15   = security(syminfo.tickerid, "15", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusMin30   = security(syminfo.tickerid, "30", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusMin60   = security(syminfo.tickerid, "60", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusMin240  = security(syminfo.tickerid, "240", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusDaily   = security(syminfo.tickerid, "D", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusWeekly  = security(syminfo.tickerid, "W", htf_minus, lookahead=barmerge.lookahead_on)
+htf_MinusMonthly = security(syminfo.tickerid, "M", htf_minus, lookahead=barmerge.lookahead_on)
+
+//Time Frame Conditions
+htf_Min5    = htf_ADXMin5 <= 20 ? yellow : htf_MinusMin5 > htf_PlusMin5 and htf_MinusMin5 > 30 ? htf_brightred : htf_MinusMin5 > htf_PlusMin5 and htf_MinusMin5 < 15 ? htf_yellred : htf_MinusMin5 > htf_PlusMin5 ? red : htf_PlusMin5 > htf_MinusMin5 and htf_PlusMin5 > 30 ? htf_lime : htf_PlusMin5 > htf_MinusMin5 and htf_PlusMin5 < 15 ? htf_yellgreen : htf_PlusMin5 > htf_MinusMin5 ? htf_green : htf_white
+htf_Min15   = htf_ADXMin15 <= 20 ? yellow : htf_MinusMin15 > htf_PlusMin15 and htf_MinusMin15 > 30 ? htf_brightred : htf_MinusMin15 > htf_PlusMin15 and htf_MinusMin15 < 15 ? htf_yellred : htf_MinusMin15 > htf_PlusMin15 ? htf_red : htf_PlusMin15 > htf_MinusMin15 and htf_PlusMin15 > 30 ? htf_lime : htf_PlusMin15 > htf_MinusMin15 and htf_PlusMin15 < 15 ? htf_yellgreen : htf_PlusMin15 > htf_MinusMin15 ? htf_green : htf_white
+htf_Min30   = htf_ADXMin30 <= 20 ? yellow : htf_MinusMin30 > htf_PlusMin30 and htf_MinusMin30 > 30 ? htf_brightred : htf_MinusMin30 > htf_PlusMin30 and htf_MinusMin30 < 15 ? htf_yellred : htf_MinusMin30 > htf_PlusMin30 ? htf_red : htf_PlusMin30 > htf_MinusMin30 and htf_PlusMin30 > 30 ? htf_lime : htf_PlusMin30 > htf_MinusMin30 and htf_PlusMin30 < 15 ? htf_yellgreen : htf_PlusMin30 > htf_MinusMin30 ? htf_green : htf_white
+htf_Min60   = htf_ADXMin60 <= 20 ? yellow : htf_MinusMin60 > htf_PlusMin60 and htf_MinusMin60 > 30 ? htf_brightred : htf_MinusMin60 > htf_PlusMin60 and htf_MinusMin60 < 15 ? htf_yellred : htf_MinusMin60 > htf_PlusMin60 ? htf_red : htf_PlusMin60 > htf_MinusMin60 and htf_PlusMin60 > 30 ? htf_lime : htf_PlusMin60 > htf_MinusMin60 and htf_PlusMin60 < 15 ? htf_yellgreen : htf_PlusMin60 > htf_MinusMin60 ? htf_green : htf_white
+htf_Min240  = htf_ADXMin240 <= 20 ? yellow : htf_MinusMin240 > htf_PlusMin240 and htf_MinusMin240 > 30 ? htf_brightred : htf_MinusMin240 > htf_PlusMin240 and htf_MinusMin240 < 15 ? htf_yellred : htf_MinusMin240 > htf_PlusMin240 ? red : htf_PlusMin240 > htf_MinusMin240 and htf_PlusMin240 > 30 ? htf_lime : htf_PlusMin240 > htf_MinusMin240 and htf_PlusMin240 < 15 ? htf_yellgreen : htf_PlusMin240 > htf_MinusMin240 ? htf_green : htf_white
+htf_Daily   = htf_ADXDaily <= 20 ? yellow : htf_MinusDaily > htf_PlusDaily and htf_MinusDaily > 30 ? htf_brightred : htf_MinusDaily > htf_PlusDaily and htf_MinusDaily < 15 ? htf_yellred : htf_MinusDaily > htf_PlusDaily ? htf_red : htf_PlusDaily > htf_MinusDaily and htf_PlusDaily > 30 ? htf_lime : htf_PlusDaily > htf_MinusDaily and htf_PlusDaily < 15 ? htf_yellgreen : htf_PlusDaily > htf_MinusDaily ? htf_green : htf_white
+htf_Weekly  = htf_ADXWeekly <= 20 ? yellow : htf_MinusWeekly > htf_PlusWeekly and htf_MinusWeekly > 30 ? htf_brightred : htf_MinusWeekly > htf_PlusWeekly and htf_MinusWeekly < 15 ? htf_yellred : htf_MinusWeekly > htf_PlusWeekly ? htf_red : htf_PlusWeekly > htf_MinusWeekly and htf_PlusWeekly > 30 ? htf_lime : htf_PlusWeekly > htf_MinusWeekly and htf_PlusWeekly < 15 ? htf_yellgreen : htf_PlusWeekly > htf_MinusWeekly ? htf_green : htf_white
+htf_Monthly = htf_ADXMonthly <= 20 ? yellow : htf_MinusMonthly > htf_PlusMonthly and htf_MinusMonthly > 30 ? htf_brightred : htf_MinusMonthly > htf_PlusMonthly and htf_MinusMonthly < 15 ? htf_yellred : htf_MinusMonthly > htf_PlusMonthly ? red : htf_PlusMonthly > htf_MinusMonthly and htf_PlusMonthly > 30 ? htf_lime : htf_PlusMonthly > htf_MinusMonthly and htf_PlusMonthly < 15 ? htf_yellgreen : htf_PlusMonthly > htf_MinusMonthly ? htf_green : htf_white
+
+htf_pnlTextColor = color.black
+htf_pnlColor5    = htf_Min5
+htf_pnlColor15   = htf_Min15
+htf_pnlColor30   = htf_Min30
+htf_pnlColor60   = htf_Min60
+htf_pnlColor240  = htf_Min240
+htf_DpnlColor    = htf_Daily
+htf_WpnlColor    = htf_Weekly
+htf_MpnlColor    = htf_Monthly
+
+//Bar Size Detection
+int htf_barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+//ATR
+htf_atr = rma(tr(true), 10)
+
+//Coordinates
+int   htf_xOffset    = htf_start
+float htf_lapos_yM   = highest(50)
+float htf_lapos_yW   = htf_lapos_yM - htf_atr 
+float htf_lapos_yD   = htf_lapos_yW - htf_atr
+float htf_lapos_y240 = htf_lapos_yD - htf_atr
+float htf_lapos_y60  = htf_lapos_y240 - htf_atr
+float htf_lapos_y30  = htf_lapos_y60 - htf_atr
+float htf_lapos_y15  = htf_lapos_y30 - htf_atr
+float htf_lapos_y5   = htf_lapos_y15 - htf_atr
+
+int   htf_lapos_x5   = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_x15  = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_x30  = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_x60  = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_x240 = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_xD   = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_xW   = timenow + htf_barSize*htf_xOffset
+int   htf_lapos_xM   = timenow + htf_barSize*htf_xOffset
+
+htf_base_time_period = timeframe.period=="5" ? 5 : timeframe.period=="15" ? 15 : timeframe.period=="30" ? 30 : timeframe.period=="60" ? 60 : timeframe.period=="240" ? 240 : timeframe.period=="D" ? 1440 : timeframe.period=="W" ? 10080 : timeframe.period=="M" ? 302400 : na
+
+//5m
+//15m
+//30m
+//60m - 1hr
+//240m - 4hr
+//1440m - day
+//10080m - week
+//302400m - month
+
+//{High and Low Reversal Arrow Code}
+
+//High and Low Reversal Arrow Formulas
+htf_h   = highest(high,htf_lkbk)
+htf_l   = lowest(low,htf_lkbk)
+htf_nh  = htf_h == htf_h[1] and htf_h[1] > htf_h[2]
+htf_nl  = htf_l == htf_l[1] and htf_l[1] < htf_l[2]
+htf_hi  = htf_nl and high > high[1]
+htf_lo  = htf_nh and low < low[1]
+htf_hi1 = barssince(htf_hi) > 2 and barssince(htf_hi) < 10 and htf_hi
+htf_lo1 = barssince(htf_lo) > 2 and barssince(htf_lo) < 10 and htf_lo
+htf_hi2 = htf_hi[1] or htf_hi[2] or htf_hi[3] ? (htf_hi[1] ? na : htf_nl[1] and high > high[2]) : na
+htf_lo2 = htf_lo[1] or htf_lo[2] or htf_lo[3] ? (htf_lo[1] ? na : htf_nh[1] and low < low[2]) : na
+htf_hi3 = htf_hi[1] or htf_hi[2] or htf_hi[3] or htf_hi2[1] or htf_hi2[2] or htf_hi2[3] ? (htf_hi1[2] or htf_hi2[1] ? na : htf_nl[2] and high > high[3]) : na
+htf_lo3 = htf_lo[1] or htf_lo[2] or htf_lo[3] or htf_lo2[1] or htf_lo2[2] or htf_lo2[3] ? (htf_lo1[2] or htf_lo2[1] ? na : htf_nh[2] and low < low[3]) : na
+htf_hi4 = htf_hi[1] or htf_hi[2] or htf_hi[3] or htf_hi2[1] or htf_hi2[2] or htf_hi2[3] or htf_hi3[1] or htf_hi3[2] or htf_hi3[3] ? (htf_hi1[3] or htf_hi2[2] or htf_hi3[1] ? na : htf_nl[3] and high > high[4]) : na
+htf_lo4 = htf_lo[1] or htf_lo[2] or htf_lo[3] or htf_lo2[1] or htf_lo2[2] or htf_lo2[3] or htf_lo3[1] or htf_lo3[2] or htf_lo3[3] ? (htf_lo2[3] or htf_lo2[2] or htf_lo3[1] ? na : htf_nh[3] and low < low[4]) : na
+
+//{Plots}
+
+//Arrows
+plotshape(htf_plot and (htf_hi1 or htf_hi2 or htf_hi3 or htf_hi4), style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2)
+plotshape(htf_plot and (htf_lo1 or htf_lo2 or htf_lo3 or htf_lo4), style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2)
+
+//Volume Spike
+plotshape(htf_plot and htf_spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike")
+
+//DMI Bars
+//barcolor(s4 ? yellow : s3 ? white : s2 and s6 ? brightred : s2 and s8 ? yellred : s2 ? red : s1 and s5 ? lime : s1 and s7 ? yellgreen : s1 ? green : white, title="DMI Bars")
+
+//{Multi Time Frame Labels} -- uses the code created by Ricardo Santos for the text labels
+
+//5 Min
+f_draw_infopanel5(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_pnlColor5, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanel5(htf_lapos_x5, htf_lapos_y5, 0,  "5 Minute", 5)
+
+//15 Min
+f_draw_infopanel15(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_pnlColor15, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na 
+f_draw_infopanel15(htf_lapos_x15, htf_lapos_y15, 0,  "15 Minute", 15)
+
+//30 Min
+f_draw_infopanel30(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_pnlColor30, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanel30(htf_lapos_x30, htf_lapos_y30, 0,  "30 Minute", 30)
+
+//1 hour
+f_draw_infopanel60(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_pnlColor60, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanel60(htf_lapos_x60, htf_lapos_y60, 0,  "1 Hour", 60)
+
+//4 hour
+f_draw_infopanel240(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_pnlColor240, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanel240(htf_lapos_x240, htf_lapos_y240, 0,  "4 Hour", 240)
+
+//Daily
+f_draw_infopanelD(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_DpnlColor, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanelD(htf_lapos_xD, htf_lapos_yD, 0,  "Daily", 1440)
+
+//Weekly
+f_draw_infopanelW(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_WpnlColor, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanelW(htf_lapos_xW, htf_lapos_yW, 0,  "Weekly", 10080)
+
+//Monthly
+f_draw_infopanelM(_x, _y, _line, _text, _tf)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := htf_base_time_period <= _tf ? label.new(x=_x, y=_y, text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, color=htf_MpnlColor, style=label.style_labelup, textcolor=htf_pnlTextColor, size=size.small) : na
+f_draw_infopanelM(htf_lapos_xM, htf_lapos_yM, 0,  "Monthly", 302400)
+
+//########################### TD Sequential ########################################
+showTDSeq = input(true, "Show TD Sequential")
+showSetup = input(true, "Show setup")
+//showCountdown = input(false, "Show countdown")
+showPerfect = input(true, "Show perfect counts")
+showOnlyCompletion = input(false, "Only show completions")
+showTDST = input(true, "Show TDST Support and Resistance")
+setupRecyclesOnNextBar = input(true, "Setup recycles on next bar")
+flip = input(false, "Setup commences after TD Price Flip")
+showRisk = input(true, "Show risk line")
+//volatilitySmoothing = input(false, "Volatility smoothing (relaxed setup)")
+
+shortColour = color.green
+longColour = color.red
+smoothedColour = color.black
+
+setupShort = int(na)
+setupLong = int(na)
+setupCount = int(na)
+setupColour = color(na)
+perfectSetup = bool(na)
+
+setupShort := if close < close[4] and (close < close[5])
+    0
+else
+    if flip
+        if nz(setupShort[1]) == 0 and close[1] < close[5] and close > close[4]
+            1
+        else
+            if nz(setupShort[1]) == 0
+                0
+            else
+                nz(setupShort[1] + 1)
+    else
+        if setupShort[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupShort[1] + 1)
+
+setupLong := if close > close[4] and (close > close[5])
+    0
+else
+    if flip
+        if nz(setupLong[1]) == 0 and close[1] > close[5] and close < close[4]
+            1
+        else
+            if nz(setupLong[1]) == 0
+                0
+            else
+                nz(setupLong[1] + 1)
+    else
+        if setupLong[1] == 9
+            setupRecyclesOnNextBar ? 1 : 0
+        else
+            nz(setupLong[1] + 1)
+
+setupCount := max(setupShort, setupLong)
+setupColour := setupShort > 0 ? setupLong > 0 ? smoothedColour : shortColour : longColour
+
+perfectSetup := showPerfect and (setupShort == 8 and high >= high[1] and high >= high[2] or 
+   setupShort == 9 and high >= high[2] and high >= high[3] or 
+   setupLong == 8 and low <= low[1] and low <= low[2] or 
+   setupLong == 9 and low <= low[2] and low <= low[3])
+
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(showTDSeq and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+
+// cdownShort = int(na)
+// cdownLong = int(na)
+// cdownColour = color(na)
+// cdownCount = int(na)
+// perfect8 = float(na)
+// perfectCountdown = bool(na)
+// lastCompletedSetup = int(na)
+// setupHigh = float(na)
+// setupLow = float(na)
+// cancelCountdown = bool(na)
+// recycleCountdown = bool(na)
+// LONG = -1
+// SHORT = 1
+// CANCELLED = 0
+
+// recycleCountdown := if setupShort == 9 and lastCompletedSetup[1] == SHORT or setupLong == 9 and lastCompletedSetup[1] == LONG
+//     highest(9) - lowest(9) >= setupHigh[1] - setupLow[1] and 
+//        (setupHigh[1] - setupLow[1]) * 1.618 > highest(9) - lowest(9)
+
+// highest_1 = highest(9)
+// setupHigh := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+//    setupLong == 9 and lastCompletedSetup[1] != LONG ? highest_1 : setupHigh[1]
+// lowest_1 = lowest(9)
+// setupLow := recycleCountdown or setupShort == 9 and lastCompletedSetup[1] != SHORT or 
+//    setupLong == 9 and lastCompletedSetup[1] != LONG ? lowest_1 : setupLow[1]
+
+// cancelCountdown := lastCompletedSetup[1] == SHORT and high < setupLow or 
+//    lastCompletedSetup[1] == LONG and low > setupHigh or recycleCountdown
+
+// lastCompletedSetup := setupLong == 9 ? LONG : 
+//    setupShort == 9 ? SHORT : cdownShort[1] == 13 and setupShort[1] != 9 or 
+//    cdownLong[1] == 13 and setupLong[1] != 9 or cancelCountdown ? CANCELLED : 
+//    lastCompletedSetup[1]
+
+// cdownShort := lastCompletedSetup != SHORT or cancelCountdown ? 0 : 
+//    close >= high[2] ? nz(cdownShort[1]) % 13 + 1 : nz(cdownShort[1]) % 13
+// cdownLong := lastCompletedSetup != LONG or cancelCountdown ? 0 : 
+//    close <= low[2] ? nz(cdownLong[1]) % 13 + 1 : nz(cdownLong[1]) % 13
+
+// cdownCount := max(cdownShort, cdownLong)
+// cdownColour := cdownShort > 0 ? shortColour : longColour
+
+// perfect8 := cdownCount < 8 ? na : cdownCount == 8 ? close : perfect8[1]
+// perfectCountdown := showPerfect and 
+//    (cdownShort == 13 and high >= perfect8 or cdownLong and low <= perfect8)
+
+// plotchar(showTDSeq and not perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Countdown 13", char="", text="13",location=invert ? location.abovebar : location.belowbar, textcolor=cdownColour, transp=0, editable=false)
+// plotchar(showTDSeq and perfectCountdown and showCountdown and cdownCount == 13 and cdownCount[1] == 12, title="Perfect Countdown 13", char="⓭", location=invert ? location.abovebar : location.belowbar, color=cdownColour, transp=0, editable=false)
+
+tdstSupport = float(na)
+tdstResistance = float(na)
+tdRisk = float(na)
+riskbar = int(na)
+
+highest_2 = highest(9)
+tdstResistance := not showTDSeq or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
+lowest_2 = lowest(9)
+tdstSupport := not showTDSeq or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
+
+plot(tdstResistance, title="TDST Resistance", color=longColour, style=plot.style_circles, linewidth=1, editable=false)
+plot(tdstSupport, title="TDST Support", color=shortColour, style=plot.style_circles, linewidth=1, editable=false)
+
+lowest_of_9_bars_0 = lowestbars(9)[0]
+highest_of_9_bars_0 = highestbars(9)[0]
+
+if not showTDSeq or not showRisk
+    tdRisk := na
+    tdRisk
+else
+    if setupLong == 9
+        riskbar := -1 * lowest_of_9_bars_0
+        tdRisk := low[riskbar] - tr[riskbar]
+        tdRisk
+    else
+        if setupShort == 9
+            riskbar := -1 * highest_of_9_bars_0
+            tdRisk := high[riskbar] + tr[riskbar]
+            tdRisk
+        else
+            tdRisk := min(open, close) < tdRisk[1] and max(open, close) > tdRisk[1] ? na : tdRisk[1]
+            tdRisk
+
+plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
+
+//################### Moving Average #####################
+
+ma_show = input(true, title="Show Moving Averages")
+
+ma_src = close
+ma_1_res = input(title="1. Moving Average Resolution", type=input.resolution, defval='')
+ma_1_type = input(defval='EMA', title='1. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_1_len = input(8, title="1. Moving Average", type=input.integer)
+ma_1_col = color.red
+
+ma_2_res = input(title="2. Moving Average Resolution", type=input.resolution, defval='')
+ma_2_type = input(defval='EMA', title='2. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_2_len = input(13, title="2. Moving Average", type=input.integer)
+ma_2_col = color.orange
+
+ma_3_res = input(title="3. Moving Average Resolution", type=input.resolution, defval='')
+ma_3_type = input(defval='EMA', title='3. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_3_len = input(21, title="3. Moving Average", type=input.integer)
+ma_3_col = color.white
+
+ma_4_res = input(title="4. Moving Average Resolution", type=input.resolution, defval='')
+ma_4_type = input(defval='EMA', title='4. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_4_len = input(34, title="4. Moving Average", type=input.integer)
+ma_4_col = color.yellow
+
+ma_5_res = input(title="5. Moving Average Resolution", type=input.resolution, defval='')
+ma_5_type = input(defval='EMA', title='5. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_5_len = input(55, title="5. Moving Average", type=input.integer)
+ma_5_col = color.blue
+
+ma_6_res = input(title="6. Moving Average Resolution", type=input.resolution, defval='')
+ma_6_type = input(defval='SMA', title='6. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_6_len = input(100, title="6. Moving Average", type=input.integer)
+ma_6_col = color.purple
+
+ma_7_res = input(title="7. Moving Average Resolution", type=input.resolution, defval='')
+ma_7_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_7_len = input(200, title="7. Moving Average", type=input.integer)
+ma_7_col = color.green
+
+ma_1 = calc_ma(ma_src, ma_1_len, ma_1_type, ma_1_res)
+ma_2 = calc_ma(ma_src, ma_2_len, ma_2_type, ma_2_res)
+ma_3 = calc_ma(ma_src, ma_3_len, ma_3_type, ma_3_res)
+ma_4 = calc_ma(ma_src, ma_4_len, ma_4_type, ma_4_res)
+ma_5 = calc_ma(ma_src, ma_5_len, ma_5_type, ma_5_res)
+ma_6 = calc_ma(ma_src, ma_6_len, ma_6_type, ma_6_res)
+ma_7 = calc_ma(ma_src, ma_7_len, ma_7_type, ma_7_res)
+
+plot(ma_show ? ma_1 : na, color=ma_1_col, linewidth=1, title="1. Moving Average")
+plot(ma_show ? ma_2 : na, color=ma_2_col, linewidth=1, title="2. Moving Average", display = display.none)
+plot(ma_show ? ma_3 : na, color=ma_3_col, linewidth=1, title="3. Moving Average", display = display.none)
+plot(ma_show ? ma_4 : na, color=ma_4_col, linewidth=1, title="4. Moving Average")
+plot(ma_show ? ma_5 : na, color=ma_5_col, linewidth=1, title="5. Moving Average")
+plot(ma_show ? ma_6 : na, color=ma_6_col, linewidth=1, title="6. Moving Average", display = display.none)
+plot(ma_show ? ma_7 : na, color=ma_7_col, linewidth=1, title="7. Moving Average")

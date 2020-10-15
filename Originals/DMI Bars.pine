@@ -1,0 +1,374 @@
+//@version=4
+study(title="(JS) DMI Bars", format=format.price, precision=4,overlay=true)
+
+//Inputs
+int   len        = input(14, title="DMI Length")
+int   adxl       = input(20, title="ADX Length")
+int   pct        = input(defval=500,title="Volume Spike Above Average Percentage")
+int   lkbk       = input(defval=21, title="Highs and Lows Lookback Period")
+int   start      = input(30,title="X Axis Starting Point")
+
+//{Volume Spike Code}
+
+//Volume Spike formula
+pctg  = (pct/100) * sma(volume,50)
+spike = volume > (sma(volume,50) + pctg)
+
+//{ADX and DMI Code}
+
+//ADX and DMI
+up      = change(high)
+down    = -change(low)
+plusDM  = na(up) ? na : (up > down and up > 0 ? up : 0)
+minusDM = na(down) ? na : (down > up and down > 0 ? down : 0)
+trur    = rma(tr, len)
+plus    = fixnan(100 * rma(plusDM, len) / trur)
+minus   = fixnan(100 * rma(minusDM, len) / trur)
+sum     = plus + minus
+adx     = 100 * rma(abs(plus - minus) / (sum == 0 ? 1 : sum), adxl)
+
+//Color Presets
+lime      = #15ff00
+green     = #53b987
+yellgreen = #9fe950
+yellow    = #ffeb3b
+brightred = #e91e63
+red       = #eb4d5c
+yellred   = #ff9542
+white     = color.white
+
+//Conditions For Bar Colors
+s1 = plus > minus
+s2 = minus > plus
+s3 = plus == minus
+s4 = adx < 20
+s5 = plus > 30
+s6 = minus > 30
+s7 = plus < 15
+s8 = minus < 15
+
+//ADX Time Frames
+ADXMin1    = security(syminfo.tickerid, "1", adx, lookahead=barmerge.lookahead_on)
+ADXMin3    = security(syminfo.tickerid, "3", adx, lookahead=barmerge.lookahead_on)
+ADXMin5    = security(syminfo.tickerid, "5", adx, lookahead=barmerge.lookahead_on)
+ADXMin15   = security(syminfo.tickerid, "15", adx, lookahead=barmerge.lookahead_on)
+ADXMin30   = security(syminfo.tickerid, "30", adx, lookahead=barmerge.lookahead_on)
+ADXMin45   = security(syminfo.tickerid, "45", adx, lookahead=barmerge.lookahead_on)
+ADXMin60   = security(syminfo.tickerid, "60", adx, lookahead=barmerge.lookahead_on)
+ADXMin120  = security(syminfo.tickerid, "120", adx, lookahead=barmerge.lookahead_on)
+ADXMin180  = security(syminfo.tickerid, "180", adx, lookahead=barmerge.lookahead_on)
+ADXMin240  = security(syminfo.tickerid, "240", adx, lookahead=barmerge.lookahead_on)
+ADXDaily   = security(syminfo.tickerid, "D", adx, lookahead=barmerge.lookahead_on)
+ADXWeekly  = security(syminfo.tickerid, "W", adx, lookahead=barmerge.lookahead_on)
+ADXMonthly = security(syminfo.tickerid, "M", adx, lookahead=barmerge.lookahead_on)
+
+//D+ Time Frames
+PlusMin1    = security(syminfo.tickerid, "1", plus, lookahead=barmerge.lookahead_on)
+PlusMin3    = security(syminfo.tickerid, "3", plus, lookahead=barmerge.lookahead_on)
+PlusMin5    = security(syminfo.tickerid, "5", plus, lookahead=barmerge.lookahead_on)
+PlusMin15   = security(syminfo.tickerid, "15", plus, lookahead=barmerge.lookahead_on)
+PlusMin30   = security(syminfo.tickerid, "30", plus, lookahead=barmerge.lookahead_on)
+PlusMin45   = security(syminfo.tickerid, "45", plus, lookahead=barmerge.lookahead_on)
+PlusMin60   = security(syminfo.tickerid, "60", plus, lookahead=barmerge.lookahead_on)
+PlusMin120  = security(syminfo.tickerid, "120", plus, lookahead=barmerge.lookahead_on)
+PlusMin180  = security(syminfo.tickerid, "180", plus, lookahead=barmerge.lookahead_on)
+PlusMin240  = security(syminfo.tickerid, "240", plus, lookahead=barmerge.lookahead_on)
+PlusDaily   = security(syminfo.tickerid, "D", plus, lookahead=barmerge.lookahead_on)
+PlusWeekly  = security(syminfo.tickerid, "W", plus, lookahead=barmerge.lookahead_on)
+PlusMonthly = security(syminfo.tickerid, "M", plus, lookahead=barmerge.lookahead_on)
+
+//D- Time Frames
+MinusMin1    = security(syminfo.tickerid, "1", minus, lookahead=barmerge.lookahead_on)
+MinusMin3    = security(syminfo.tickerid, "3", minus, lookahead=barmerge.lookahead_on)
+MinusMin5    = security(syminfo.tickerid, "5", minus, lookahead=barmerge.lookahead_on)
+MinusMin15   = security(syminfo.tickerid, "15", minus, lookahead=barmerge.lookahead_on)
+MinusMin30   = security(syminfo.tickerid, "30", minus, lookahead=barmerge.lookahead_on)
+MinusMin45   = security(syminfo.tickerid, "45", minus, lookahead=barmerge.lookahead_on)
+MinusMin60   = security(syminfo.tickerid, "60", minus, lookahead=barmerge.lookahead_on)
+MinusMin120  = security(syminfo.tickerid, "120", minus, lookahead=barmerge.lookahead_on)
+MinusMin180  = security(syminfo.tickerid, "180", minus, lookahead=barmerge.lookahead_on)
+MinusMin240  = security(syminfo.tickerid, "240", minus, lookahead=barmerge.lookahead_on)
+MinusDaily   = security(syminfo.tickerid, "D", minus, lookahead=barmerge.lookahead_on)
+MinusWeekly  = security(syminfo.tickerid, "W", minus, lookahead=barmerge.lookahead_on)
+MinusMonthly = security(syminfo.tickerid, "M", minus, lookahead=barmerge.lookahead_on)
+
+//Time Frame Conditions
+Min1    = ADXMin1 <= 20 ? yellow : MinusMin1 > PlusMin1 and MinusMin1 > 30 ? brightred : MinusMin1 > PlusMin1 and MinusMin1 < 15 ? yellred : MinusMin1 > PlusMin1 ? red : PlusMin1 > MinusMin1 and PlusMin1 > 30 ? lime : PlusMin1 > MinusMin1 and PlusMin1 < 15 ? yellgreen : PlusMin1 > MinusMin1 ? green : white
+Min3    = ADXMin3 <= 20 ? yellow : MinusMin3 > PlusMin3 and MinusMin3 > 30 ? brightred : MinusMin3 > PlusMin3 and MinusMin3 < 15 ? yellred : MinusMin3 > PlusMin3 ? red : PlusMin3 > MinusMin3 and PlusMin3 > 30 ? lime : PlusMin3 > MinusMin3 and PlusMin3 < 15 ? yellgreen : PlusMin3 > MinusMin3 ? green : white
+Min5    = ADXMin5 <= 20 ? yellow : MinusMin5 > PlusMin5 and MinusMin5 > 30 ? brightred : MinusMin5 > PlusMin5 and MinusMin5 < 15 ? yellred : MinusMin5 > PlusMin5 ? red : PlusMin5 > MinusMin5 and PlusMin5 > 30 ? lime : PlusMin5 > MinusMin5 and PlusMin5 < 15 ? yellgreen : PlusMin5 > MinusMin5 ? green : white
+Min15   = ADXMin15 <= 20 ? yellow : MinusMin15 > PlusMin15 and MinusMin15 > 30 ? brightred : MinusMin15 > PlusMin15 and MinusMin15 < 15 ? yellred : MinusMin15 > PlusMin15 ? red : PlusMin15 > MinusMin15 and PlusMin15 > 30 ? lime : PlusMin15 > MinusMin15 and PlusMin15 < 15 ? yellgreen : PlusMin15 > MinusMin15 ? green : white
+Min30   = ADXMin30 <= 20 ? yellow : MinusMin30 > PlusMin30 and MinusMin30 > 30 ? brightred : MinusMin30 > PlusMin30 and MinusMin30 < 15 ? yellred : MinusMin30 > PlusMin30 ? red : PlusMin30 > MinusMin30 and PlusMin30 > 30 ? lime : PlusMin30 > MinusMin30 and PlusMin30 < 15 ? yellgreen : PlusMin30 > MinusMin30 ? green : white
+Min45   = ADXMin45 <= 20 ? yellow : MinusMin45 > PlusMin45 and MinusMin45 > 30 ? brightred : MinusMin45 > PlusMin45 and MinusMin45 < 15 ? yellred : MinusMin45 > PlusMin45 ? red : PlusMin45 > MinusMin45 and PlusMin45 > 30 ? lime : PlusMin45 > MinusMin45 and PlusMin45 < 15 ? yellgreen : PlusMin45 > MinusMin45 ? green : white
+Min60   = ADXMin60 <= 20 ? yellow : MinusMin60 > PlusMin60 and MinusMin60 > 30 ? brightred : MinusMin60 > PlusMin60 and MinusMin60 < 15 ? yellred : MinusMin60 > PlusMin60 ? red : PlusMin60 > MinusMin60 and PlusMin60 > 30 ? lime : PlusMin60 > MinusMin60 and PlusMin60 < 15 ? yellgreen : PlusMin60 > MinusMin60 ? green : white
+Min120  = ADXMin120 <= 20 ? yellow : MinusMin120 > PlusMin120 and MinusMin120 > 30 ? brightred : MinusMin120 > PlusMin120 and MinusMin120 < 15 ? yellred : MinusMin120 > PlusMin120 ? red : PlusMin120 > MinusMin120 and PlusMin120 > 30 ? lime : PlusMin120 > MinusMin120 and PlusMin120 < 15 ? yellgreen : PlusMin120 > MinusMin120 ? green : white
+Min180  = ADXMin180 <= 20 ? yellow : MinusMin180 > PlusMin180 and MinusMin180 > 30 ? brightred : MinusMin180 > PlusMin180 and MinusMin180 < 15 ? yellred : MinusMin180 > PlusMin180 ? red : PlusMin180 > MinusMin180 and PlusMin180 > 30 ? lime : PlusMin180 > MinusMin180 and PlusMin180 < 15 ? yellgreen : PlusMin180 > MinusMin180 ? green : white
+Min240  = ADXMin240 <= 20 ? yellow : MinusMin240 > PlusMin240 and MinusMin240 > 30 ? brightred : MinusMin240 > PlusMin240 and MinusMin240 < 15 ? yellred : MinusMin240 > PlusMin240 ? red : PlusMin240 > MinusMin240 and PlusMin240 > 30 ? lime : PlusMin240 > MinusMin240 and PlusMin240 < 15 ? yellgreen : PlusMin240 > MinusMin240 ? green : white
+Daily   = ADXDaily <= 20 ? yellow : MinusDaily > PlusDaily and MinusDaily > 30 ? brightred : MinusDaily > PlusDaily and MinusDaily < 15 ? yellred : MinusDaily > PlusDaily ? red : PlusDaily > MinusDaily and PlusDaily > 30 ? lime : PlusDaily > MinusDaily and PlusDaily < 15 ? yellgreen : PlusDaily > MinusDaily ? green : white
+Weekly  = ADXWeekly <= 20 ? yellow : MinusWeekly > PlusWeekly and MinusWeekly > 30 ? brightred : MinusWeekly > PlusWeekly and MinusWeekly < 15 ? yellred : MinusWeekly > PlusWeekly ? red : PlusWeekly > MinusWeekly and PlusWeekly > 30 ? lime : PlusWeekly > MinusWeekly and PlusWeekly < 15 ? yellgreen : PlusWeekly > MinusWeekly ? green : white
+Monthly = ADXMonthly <= 20 ? yellow : MinusMonthly > PlusMonthly and MinusMonthly > 30 ? brightred : MinusMonthly > PlusMonthly and MinusMonthly < 15 ? yellred : MinusMonthly > PlusMonthly ? red : PlusMonthly > MinusMonthly and PlusMonthly > 30 ? lime : PlusMonthly > MinusMonthly and PlusMonthly < 15 ? yellgreen : PlusMonthly > MinusMonthly ? green : white
+
+pnlTextColor = color.black
+pnlColor1    = Min1
+pnlColor3    = Min3
+pnlColor5    = Min5
+pnlColor15   = Min15
+pnlColor30   = Min30
+pnlColor45   = Min45
+pnlColor60   = Min60
+pnlColor120  = Min120
+pnlColor180  = Min180
+pnlColor240  = Min240
+DpnlColor    = Daily
+WpnlColor    = Weekly
+MpnlColor    = Monthly
+
+//Bar Size Detection
+int barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+//ATR
+atr = rma(tr(true), 10)
+
+//Coordinates
+int   xOffset    = start
+float lapos_yM   = highest(550)
+float lapos_yW   = lapos_yM - atr
+float lapos_yD   = lapos_yW - atr
+float lapos_y240 = lapos_yD - atr
+float lapos_y180 = lapos_y240 - atr
+float lapos_y120 = lapos_y180 - atr
+float lapos_y60  = lapos_y120 - atr
+float lapos_y45  = lapos_y60 - atr
+float lapos_y30  = lapos_y45 - atr
+float lapos_y15  = lapos_y30 - atr
+float lapos_y5   = lapos_y15 - atr
+float lapos_y3   = lapos_y5 - atr
+float lapos_y1   = lapos_y3 - atr
+int   lapos_x1   = timenow + barSize*xOffset
+int   lapos_x3   = timenow + barSize*xOffset
+int   lapos_x5   = timenow + barSize*xOffset
+int   lapos_x15  = timenow + barSize*xOffset
+int   lapos_x30  = timenow + barSize*xOffset
+int   lapos_x45  = timenow + barSize*xOffset
+int   lapos_x60  = timenow + barSize*xOffset
+int   lapos_x120 = timenow + barSize*xOffset
+int   lapos_x180 = timenow + barSize*xOffset
+int   lapos_x240 = timenow + barSize*xOffset
+int   lapos_xD   = timenow + barSize*xOffset
+int   lapos_xW   = timenow + barSize*xOffset
+int   lapos_xM   = timenow + barSize*xOffset
+
+//{High and Low Reversal Arrow Code}
+
+//High and Low Reversal Arrow Formulas
+h   = highest(high,lkbk)
+l   = lowest(low,lkbk)
+nh  = h == h[1] and h[1] > h[2]
+nl  = l == l[1] and l[1] < l[2]
+hi  = nl and high > high[1]
+lo  = nh and low < low[1]
+hi1 = barssince(hi) > 2 and barssince(hi) < 10 and hi
+lo1 = barssince(lo) > 2 and barssince(lo) < 10 and lo
+hi2 = hi[1] or hi[2] or hi[3] ? (hi[1] ? na : nl[1] and high > high[2]) : na
+lo2 = lo[1] or lo[2] or lo[3] ? (lo[1] ? na : nh[1] and low < low[2]) : na
+hi3 = hi[1] or hi[2] or hi[3] or hi2[1] or hi2[2] or hi2[3] ? (hi1[2] or hi2[1] ? na : nl[2] and high > high[3]) : na
+lo3 = lo[1] or lo[2] or lo[3] or lo2[1] or lo2[2] or lo2[3] ? (lo1[2] or lo2[1] ? na : nh[2] and low < low[3]) : na
+hi4 = hi[1] or hi[2] or hi[3] or hi2[1] or hi2[2] or hi2[3] or hi3[1] or hi3[2] or hi3[3] ? (hi1[3] or hi2[2] or hi3[1] ? na : nl[3] and high > high[4]) : na
+lo4 = lo[1] or lo[2] or lo[3] or lo2[1] or lo2[2] or lo2[3] or lo3[1] or lo3[2] or lo3[3] ? (lo2[3] or lo2[2] or lo3[1] ? na : nh[3] and low < low[4]) : na
+
+//{Plots}
+
+//Arrows
+plotshape(hi1 or hi2 or hi3 or hi4, style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, title="High Over Low Period",offset=-2)
+plotshape(lo1 or lo2 or lo3 or lo4, style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, title="Low Under High Period",offset=-2)
+
+//Volume Spike
+plotshape(spike, style=shape.circle, location=location.belowbar, color=#2196f3, size=size.tiny, title="Volume Spike")
+
+//DMI Bars
+barcolor(s4 ? yellow : s3 ? white : s2 and s6 ? brightred : s2 and s8 ? yellred : s2 ? red : s1 and s5 ? lime : s1 and s7 ? yellgreen : s1 ? green : white, title="DMI Bars")
+
+//{Multi Time Frame Labels} -- uses the code created by Ricardo Santos for the text labels
+
+//1 Min
+f_draw_infopanel1(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor1, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel1(lapos_x1, lapos_y1, 0,  "1 Minute")
+
+//3 Min
+f_draw_infopanel3(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor3, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel3(lapos_x3, lapos_y3, 0,  "3 Minute")
+
+//5 Min
+f_draw_infopanel5(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor5, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel5(lapos_x5, lapos_y5, 0,  "5 Minute")
+
+//15 Min
+f_draw_infopanel15(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor15, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel15(lapos_x15, lapos_y15, 0,  "15 Minute")
+
+//30 Min
+f_draw_infopanel30(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor30, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel30(lapos_x30, lapos_y30, 0,  "30 Minute")
+
+//45 Min
+f_draw_infopanel45(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor45, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel45(lapos_x45, lapos_y45, 0,  "45 Minute")
+
+//1 hour
+f_draw_infopanel60(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor60, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel60(lapos_x60, lapos_y60, 0,  "1 Hour")
+
+//2 hour
+f_draw_infopanel120(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor120, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel120(lapos_x120, lapos_y120, 0,  "2 Hour")
+
+//3 hour
+f_draw_infopanel180(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor180, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel180(lapos_x180, lapos_y180, 0,  "3 Hour")
+
+//4 hour
+f_draw_infopanel240(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=pnlColor240, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanel240(lapos_x240, lapos_y240, 0,  "4 Hour")
+
+//Daily
+f_draw_infopanelD(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=DpnlColor, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanelD(lapos_xD, lapos_yD, 0,  "Daily")
+
+//Weekly
+f_draw_infopanelW(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=WpnlColor, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanelW(lapos_xW, lapos_yW, 0,  "Weekly")
+
+//Monthly
+f_draw_infopanelM(_x, _y, _line, _text)=>
+    _rep_text = ""
+    for _l = 0 to _line
+        _rep_text := _rep_text + "\n"
+    _rep_text := _rep_text + _text
+    var label _la = na
+    label.delete(_la)
+    _la := label.new(
+         x=_x, y=_y, 
+         text=_rep_text, xloc=xloc.bar_time, yloc=yloc.price, 
+         color=MpnlColor, style=label.style_labelup, textcolor=pnlTextColor, size=size.small)
+f_draw_infopanelM(lapos_xM, lapos_yM, 0,  "Monthly")
