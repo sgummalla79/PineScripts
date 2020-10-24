@@ -1,0 +1,30 @@
+study("UCS_Top & Bottom Candle Arrows to Identify", shorttitle = "UCS_T&B_Overlay", overlay=true)
+a = input(5, "Percent K Length")
+b = input(3, "Percent D Length")
+
+// Range Calculation
+ll = lowest (low, a)
+hh = highest (high, a)
+diff = hh - ll
+rdiff = close - (hh+ll)/2
+
+// Nested Moving Average for smoother curves
+avgrel = ema(ema(rdiff,b),b)
+avgdiff = ema(ema(diff,b),b)
+
+// Momentum
+mom = ((close - close[b])/close[b])*1000
+
+
+// SMI calculations
+SMI = avgdiff != 0 ? (avgrel/(avgdiff/2)*100) : 0
+SMIsignal = ema(SMI,b)
+
+// Strategy Signals 
+// Buy Setup
+long = SMI < -35  and mom > 0 and mom[1] < 0 ? 1 : 0
+
+plotshape(long, style=shape.arrowup, location = location.belowbar, color = green)
+// Short Setup
+short = SMI > 35  and mom < 0 and mom[1] > 0 ? 1 : 0
+plotshape(short, style=shape.arrowdown, location = location.abovebar, color = red)

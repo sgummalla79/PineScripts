@@ -1,0 +1,59 @@
+//@version=3
+// Copyright (c) 2018-present, Alex Orekhov (everget)
+// Laguerre RSI (Self-Adjusting Alpha with Fractals Energy) script may be freely distributed under the MIT license.
+study("Laguerre RSI (Self-Adjusting Alpha with Fractals Energy)", shorttitle="LRSI")
+
+alpha = input(title="Alpha", type=float, defval=0.7, minval=0, step=0.1)
+highlightCrossovers = input(title="Highlight Bands Crossovers ?", type=bool, defval=true)
+applyFractalsEnergy = input(title="Apply Fractals Energy ?", type=bool, defval=true)
+feLength = input(title="Fractals Energy Length", type=integer, defval=13)
+applyNormalization = input(title="Apply Normalization to [0, 100] ?", type=bool, defval=false)
+src = input(title="Source", type=source, defval=close)
+
+OC = (open + nz(close[1])) / 2
+HC = max(high, nz(close[1]))
+LC = min(low, nz(close[1]))
+
+feSrc = (OC + HC + LC + close) / 4
+feAlpha = log(sum((HC - LC) / (highest(feLength) - lowest(feLength)), feLength)) / log(feLength)
+
+lrsiAlpha = applyFractalsEnergy ? feAlpha : alpha
+
+L0 = 0.0
+L0 := lrsiAlpha * (applyFractalsEnergy ? feSrc : src) + (1 - lrsiAlpha) * nz(L0[1])
+
+L1 = 0.0
+L1 := -(1 - lrsiAlpha) * L0 + nz(L0[1]) + (1 - lrsiAlpha) * nz(L1[1])
+
+L2 = 0.0
+L2 := -(1 - lrsiAlpha) * L1 + nz(L1[1]) + (1 - lrsiAlpha) * nz(L2[1])
+
+L3 = 0.0
+L3 := -(1 - lrsiAlpha) * L2 + nz(L2[1]) + (1 - lrsiAlpha) * nz(L3[1])
+
+CU = 0.0
+CU := (L0 >= L1 ? L0 - L1 : 0) + (L1 >= L2 ? L1 - L2 : 0) + (L2 >= L3 ? L2 - L3 : 0)
+
+CD = 0.0
+CD := (L0 >= L1 ? 0 : L1 - L0) + (L1 >= L2 ? 0 : L2 - L1) + (L2 >= L3 ? 0 : L3 - L2)
+
+lrsi = CU + CD != 0
+         ? applyNormalization ? 100 * CU / (CU + CD) : CU / (CU + CD)
+         : 0
+
+mult = (applyNormalization ? 100 : 1)
+
+ob = 0.8 * mult
+middle = 0.5 * mult
+os = 0.2 * mult
+
+lrsiColor = lrsi > ob ? #3c78d8 : lrsi < os ? #ff3e7d : #93c47d
+plot(lrsi, title="LRSI", linewidth=2, color=lrsiColor, transp=0)
+plot(applyFractalsEnergy ? (applyNormalization ? 100 * feAlpha : feAlpha) : na, title="FE Alpha", linewidth=2, color=#674ea7, transp=0)
+
+obLevel = plot(ob, title="OB", color=#686868)
+plot(middle, title="Middle", color=#686868)
+osLevel = plot(os, title="OS", color=#686868)
+
+plotshape(crossunder(lrsi, ob) and highlightCrossovers ? ob : na, title="Overbought Crossunder", location=location.absolute, style=shape.circle, size=size.tiny, color=red, transp=20)
+plotshape(crossover(lrsi, os) and highlightCrossovers ? os : na, title="Oversold Crossover", location=location.absolute, style=shape.circle, size=size.tiny, color=green, transp=20)

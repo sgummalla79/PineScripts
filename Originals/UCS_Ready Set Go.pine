@@ -1,0 +1,14 @@
+study("UCS_Ready Set Go", shorttitle="UCS_RSG", precision = 2)
+
+length = input(21, title = "Length")
+
+x = sum(tr, length)
+a = highest(high,length)
+b = lowest(low,length)
+hline(61.8, title = "Ready to Pop", color = green)
+hline(38.2, title = "Done with the Trade", color = blue)
+hline(25.0, title = "Move is completed", color = red)
+
+RSG = 100 * log (x / (a - b)) / log(length)
+
+plot(RSG, title = "RSG by UCS")

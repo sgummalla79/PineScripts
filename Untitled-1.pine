@@ -1,0 +1,51 @@
+//@version=4
+study(title="My_Indicator_Beta_v1.0", shorttitle="MIBv1.0", overlay=true)
+
+hma_plot = input(true, title="Plot Hull Moving Average") 
+hma_ebc = input(true, title="Color Bars Based on Hull Moving Average") 
+hma_length = input(50, minval=1)
+hma_src = input(close, title="Source")
+
+forecasttype="flat"
+linreglen=3
+
+forecast(_type,_src,_flen,_lrlen) => _type=="flat" ? _src : _type=="linreg" ? linreg(_src,_lrlen,_flen) : na    
+
+hma_ma = hma(hma_src,hma_length) //wma(2*wma(src, length/2)-wma(src, length), round(sqrt(length)))
+plot(hma_plot ? hma_ma : na, color = (hma_ma > hma_ma[1]) ? color.green : color.red)
+
+colorNormLength = 14
+roc = hma_ma[length] != 0 ? (hma_ma / hma_ma[length] - 1) * 100 : 0
+length3 = 3;
+length10 = 10;
+rocavg3 = simpleMovingAvg(roc,length3);
+rocavg10 = simpleMovingAvg(roc,length10);
+
+forecast1=forecast(forecasttype, hma_src,1,linreglen)
+hma_forecast1=((hma(hma_src,hma_length-1)*(hma_length-1))+forecast1)/hma_length
+plot(hma_plot ? hma_forecast1 : na,color=(hma_forecast1 > hma_ma) ? color.green : color.red, linewidth=2, style=plot.style_circles, offset=1, show_last=1, editable=false)
+
+forecast2=forecast(forecasttype, hma_src,2,linreglen)
+hma_forecast2=((hma(hma_src,hma_length-2)*(hma_length-2))+forecast1+forecast2)/hma_length
+plot(hma_plot ? hma_forecast2 : na,color=(hma_forecast2 > hma_forecast1) ? color.green : color.red, linewidth=2, style=plot.style_circles, offset=2, show_last=1, editable=false)
+
+forecast3=forecast(forecasttype, hma_src,3,linreglen)
+hma_forecast3=((hma(hma_src,hma_length-3)*(hma_length-3))+forecast1+forecast2+forecast3)/hma_length
+plot(hma_plot ? hma_forecast3 : na,color=(hma_forecast3 > hma_forecast2) ? color.green : color.red, linewidth=2, style=plot.style_circles, offset=3, show_last=1, editable=false)
+
+hma_close = ohlc4
+hma_open = float(na)
+hma_open := na(hma_open[1]) ? (open + close) / 2 : (hma_open[1] + hma_close[1]) / 2
+
+hma_inside6 = hma_open <= max(hma_open[6],hma_close[6]) and hma_open>=min(hma_open[6],hma_close[6]) and hma_close <= max(hma_open[6],hma_close[6]) and hma_close >= min(hma_open[6],hma_close[6]) ? 1 : 0
+hma_inside5 = hma_open <= max(hma_open[5],hma_close[5]) and hma_open>=min(hma_open[5],hma_close[5]) and hma_close <= max(hma_open[5],hma_close[5]) and hma_close >= min(hma_open[5],hma_close[5]) ? 1 : 0
+hma_inside4 = hma_open <= max(hma_open[4],hma_close[4]) and hma_open>=min(hma_open[4],hma_close[4]) and hma_close <= max(hma_open[4],hma_close[4]) and hma_close >= min(hma_open[4],hma_close[4]) ? 1 : 0
+hma_inside3 = hma_open <= max(hma_open[3],hma_close[3]) and hma_open>=min(hma_open[3],hma_close[3]) and hma_close <= max(hma_open[3],hma_close[3]) and hma_close >= min(hma_open[3],hma_close[3]) ? 1 : 0
+hma_inside2 = hma_open <= max(hma_open[2],hma_close[2]) and hma_open>=min(hma_open[2],hma_close[2]) and hma_close <= max(hma_open[2],hma_close[2]) and hma_close >= min(hma_open[2],hma_close[2]) ? 1 : 0
+hma_inside1 = hma_open <= max(hma_open[1],hma_close[1]) and hma_open>=min(hma_open[1],hma_close[1]) and hma_close <= max(hma_open[1],hma_close[1]) and hma_close >= min(hma_open[1],hma_close[1]) ? 1 : 0
+
+hma_color = hma_close - hma_open > 0 ? 1 : 0
+hma_color_value = hma_inside6 ? hma_color[6] : hma_inside5 ? hma_color[5] : hma_inside4 ? hma_color[4] : hma_inside3 ? hma_color[3] : hma_inside2 ? hma_color[2] : hma_inside1 ? hma_color[1] : hma_color
+hma_final_color = hma_color_value ? color.blue : color.red
+
+barcolor(hma_ebc ? hma_final_color : na)

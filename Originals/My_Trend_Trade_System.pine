@@ -1,0 +1,62 @@
+//@version=4
+study(title="My_Trend_Trade_System", shorttitle="MTTS", overlay=true)
+
+tts_src=close
+tts_ema_length = 26
+tts_vwap_length = 13
+tts_rsi_len = 14
+
+tts_ema = ema(low, tts_ema_length)
+tts_vwap = ema(vwap, tts_vwap_length)
+tts_rsi = rsi(close, 14)
+
+tts_setupShort = int(na)
+tts_setupLong = int(na)
+
+//plot(tts_vwap, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+//plot(tts_ema, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+
+tts_setupLong := if (tts_rsi > 55 and close > tts_ema) 
+    if (nz(tts_setupLong[1]) == 0) or (nz(tts_setupLong[1]) > 1)
+        nz(tts_setupLong[1]) + 1 //---------------------------------------->starts the setup
+    else 
+        if (nz(tts_setupLong[1]) == 1 and high > high[1])
+            nz(tts_setupLong[1]) + 1
+        else
+            nz(tts_setupLong[1])
+else
+    if (tts_rsi > 50 and close > tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupLong[1]) > 1) //----------------------------------->if greater than 1 means long setup started
+            nz(tts_setupLong[1]) + 1
+        else
+            nz(tts_setupLong[1])
+    else
+        0
+
+plotshape(tts_setupLong == 2, style=shape.arrowup, location=location.bottom, color=color.lime, transp=0, editable=false) 
+plotshape(((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1, style=shape.arrowdown, location=location.top, color=color.orange, transp=0, editable=false)
+//bgcolor(tts_setupLong == 2 ? color.lime : na, editable=false, transp=75)
+//bgcolor(((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1 ? color.yellow : na, editable=false, transp=75)
+
+//short setup
+tts_setupShort := if (tts_rsi < 45 and close < tts_ema)
+    if (nz(tts_setupShort[1]) == 0) or (nz(tts_setupShort[1]) > 1)
+        nz(tts_setupShort[1]) + 1
+    else 
+        if (nz(tts_setupShort[1]) == 1 and low < low[1])
+            nz(tts_setupShort[1]) + 1 //------------------------------------------->starts the setup
+        else
+            nz(tts_setupShort[1])
+else
+    if (tts_rsi < 50 and close < tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupShort[1]) > 1) //--------------------------------->if greater than 1 means short setup started
+            nz(tts_setupShort[1]) + 1
+        else
+            nz(tts_setupShort[1])
+    else
+        0
+
+plotshape(tts_setupShort == 2, style=shape.arrowup, location=location.bottom, color=color.red, transp=0, editable=false) 
+plotshape(((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1, style=shape.arrowdown, location=location.top, color=color.blue, transp=0, editable=false)
+//bgcolor(tts_setupShort == 2 ? color.red : na, editable=false, transp=75)
+//bgcolor(((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1 ? color.orange : na, editable=false, transp=75)

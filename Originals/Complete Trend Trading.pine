@@ -7,7 +7,11 @@ myema = ema(low, 26)
 mvwaplength = input(13) 
 mvwap= ema(vwap, mvwaplength)
 
+//In uptrend
+//Exit Completely: In an uptrend, close your entire position on bars colored yellow or red. (Again, closed bars)
 
+//In downtrend
+//Exit Completely: In a downtrend, close your entire position on bars colored orange or green. (Again, closed bars)
 
 price=close
 

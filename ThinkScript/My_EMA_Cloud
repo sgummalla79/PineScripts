@@ -1,0 +1,74 @@
+input price = close;
+input emaFastlength = 9;
+input emaSlowlength = 20;
+input emaThreelength = 66;
+input emaLonglength = 100;
+input displace = 0;
+input showBreakoutSignals = no;
+
+
+# First EMA
+plot emaFastAvgExp = ExpAverage(price[-displace], emaFastlength);
+plot emaFastUpSignal = price crosses above emaFastAvgExp;
+plot emaFastDownSignal = price crosses below emaFastAvgExp;
+
+emaFastUpSignal.SetHiding(!showBreakoutSignals);
+emaFastDownSignal.SetHiding(!showBreakoutSignals);
+
+emaFastAvgExp.SetDefaultColor(Color.WHITE);
+emaFastUpSignal.SetDefaultColor(Color.UPTICK);
+emaFastUpSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+emaFastDownSignal.SetDefaultColor(Color.DOWNTICK);
+emaFastDownSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+
+# Second Ema
+plot emaSlowAvgExp = ExpAverage(price[-displace], emaSlowlength);
+plot emaSlowUpSignal = price crosses above emaSlowAvgExp;
+plot emaSlowDownSignal = price crosses below emaSlowAvgExp;
+
+emaSlowUpSignal.SetHiding(!showBreakoutSignals);
+emaSlowDownSignal.SetHiding(!showBreakoutSignals);
+
+emaSlowAvgExp.SetDefaultColor(Color.CYAN);
+emaSlowUpSignal.SetDefaultColor(Color.UPTICK);
+emaSlowUpSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+emaSlowDownSignal.SetDefaultColor(Color.DOWNTICK);
+emaSlowDownSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+
+
+# Third EMA
+plot emaThreeAvgExp = ExpAverage(price[-displace], emaThreelength);
+plot emaThreeUpSignal = price crosses above emaThreeAvgExp;
+plot emaThreeDownSignal = price crosses below emaThreeAvgExp;
+
+emaThreeUpSignal.SetHiding(!showBreakoutSignals);
+emaThreeDownSignal.SetHiding(!showBreakoutSignals);
+
+emaThreeAvgExp.SetDefaultColor(Color.VIOLET);
+emaThreeAvgExp.SetLineWeight(2);
+emaThreeUpSignal.SetDefaultColor(Color.UPTICK);
+emaThreeUpSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+emaThreeDownSignal.SetDefaultColor(Color.DOWNTICK);
+emaThreeDownSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+
+
+# Fourth EMA
+plot emaLongAvgExp = ExpAverage(price[-displace], emaLonglength);
+plot emaLongUpSignal = price crosses above emaLongAvgExp;
+plot emaLongDownSignal = price crosses below emaLongAvgExp;
+
+emaLongUpSignal.SetHiding(!showBreakoutSignals);
+emaLongDownSignal.SetHiding(!showBreakoutSignals);
+
+emaLongAvgExp.SetDefaultColor(Color.LIGHT_ORANGE);
+emaLongAvgExp.SetLineWeight(2);
+emaLongUpSignal.SetDefaultColor(Color.UPTICK);
+emaLongUpSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+emaLongDownSignal.SetDefaultColor(Color.DOWNTICK);
+emaLongDownSignal.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+
+AddCloud(emaFastAvgExp, emaSlowAvgExp, Color.White, Color.MAGENTA);
+AddCloud(emaSlowAvgExp, emaThreeAvgExp, Color.GRAY, Color.PLUM);
+AddCloud(emaThreeAvgExp, emaLongAvgExp, Color.DARK_GRAY, Color.RED);
+
+

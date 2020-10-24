@@ -1,0 +1,53 @@
+def o = open;
+def c = close;
+
+AddLabel(yes, " ", Color.BLACK);
+
+input AverageType2 = AverageType.HULL;
+
+def AvgLength     = 13; #TOS default 8 
+
+def Lengthchop    = 13;
+
+def Choppy        = 61.8;
+
+def MidLine       = 50;
+
+def Trending      = 38.2;
+
+
+def AVG = MovingAverage(AverageType = AverageType2, c, AvgLength);
+
+def CIB = ((Log(Sum(TrueRange(h, c, l), Lengthchop) / 
+
+             (Highest(if h >= c[1] then h else 
+
+             c[1], Lengthchop) - 
+
+             Lowest( if l <= c[1] then l else c[1], Lengthchop)))  
+
+             / Log(10)) / (Log(Lengthchop) / Log(10))) * 100;
+
+def CI  = CIB;
+
+input enableCHOP = yes;
+    AddLabel(enableCHOP, if CI > MidLine and CI < 62  then "MILD CHOP " + Round(CI, 0) else if CI >= 61.8 then "STRONG CHOP " + Round(CI, 0) else if CI <= MidLine and CI > 31.8 then " MILD TRENDING " + Round(CI, 0) else "STRONG TRENDING " + Round(CI, 0), if CI > MidLine then Color.YELLOW else Color.CYAN);
+
+
+# Simple Trend Score
+# Assembled by BenTen at useThinkScript.com
+# Converted from https://www.tradingview.com/script/ViXoUfeL/
+
+#AddLabel(YES, " ", Color.BLACK); 
+
+def TrendScore = If(close >= close[11], 1, -1) + If(close >= close[12], 1, -1) + If(close >= close[13], 1, -1) + If(close >= close[14], 1, -1) + If(close >= close[15], 1, -1) + If(close >= close[16], 1, -1) + If(close >= close[17], 1, -1) + If(close >= close[18], 1, -1) + If(close >= close[19], 1, -1) + If(close >= close[20], 1, -1);
+
+def col1 = TrendScore > 5;
+def col2 = TrendScore < -5;
+def colNET = !col1 and !col2;
+def histogram = TrendScore;
+
+input showSTS = yes;
+AddLabel(showSTS and  col1, " Bullish ", Color.GREEN);
+AddLabel(showSTS and  col2, " Bearish ", Color.PLUM);
+AddLabel(showSTS and  colNET, " Neutral ", Color.GRAY);

@@ -1,5 +1,6 @@
 //@version=4
-study("(JS) Ultimate RSI", shorttitle="(JS)URSI")
+study("My Trend Trading System", shorttitle="MTTS")
+
 //-----------------------------------------------------------------------------------------------
 //{Inputs}
 //-----------------------------------------------------------------------------------------------
@@ -117,19 +118,13 @@ bg2         = rbg >= rbg[1]
 bg3         = rbg < rbg[1]
 bg4         = rbg < 0
 bgcolor(bgcgr ? color.gray : na, editable=false, transp=95)
-bgc1        = bg1 and bg2 ? green : bg1 and bg3 ? darkgreen : 
-   bg4 and bg3 ? red : bg4 and bg2 ? darkred : darkteal
-bgc2        = bg1 and bg2 ? lime : 
-   bg1 and bg3 ? darkgreen : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkteal
-bgc3        = bg1 and bg2 ? skyblue : 
-   bg1 and bg3 ? darkblue : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkpurp
-bgc4        = bg1 and bg2 ? teal : 
-   bg1 and bg3 ? darkteal : bg4 and bg3 ? litepurp : bg4 and bg2 ? purple : blue
-bgc5        = bg1 and bg2 ? yellow : 
-   bg1 and bg3 ? darkyellow : bg4 and bg3 ? orange : bg4 and bg2 ? darkorange : color.olive
-bgc6        = bg1 and bg2 ? color.white : 
-   bg1 and bg3 ? color.silver : bg4 and bg3 ? color.gray : bg4 and bg2 ? color.silver : color.white
-bgcol       = bgc == 1 ? bgc1 : bgc == 2 ? bgc2 : bgc == 3 ? bgc3 : bgc == 4 ? bgc4 : bgc == 5 ? bgc5 : bgc6
+bgc1 = bg1 and bg2 ? green : bg1 and bg3 ? darkgreen : bg4 and bg3 ? red : bg4 and bg2 ? darkred : darkteal
+bgc2 = bg1 and bg2 ? lime : bg1 and bg3 ? darkgreen : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkteal
+bgc3 = bg1 and bg2 ? skyblue : bg1 and bg3 ? darkblue : bg4 and bg3 ? magenta : bg4 and bg2 ? darkmagenta : darkpurp
+bgc4 = bg1 and bg2 ? teal : bg1 and bg3 ? darkteal : bg4 and bg3 ? litepurp : bg4 and bg2 ? purple : blue
+bgc5 = bg1 and bg2 ? yellow : bg1 and bg3 ? darkyellow : bg4 and bg3 ? orange : bg4 and bg2 ? darkorange : color.olive
+bgc6 = bg1 and bg2 ? color.white : bg1 and bg3 ? color.silver : bg4 and bg3 ? color.gray : bg4 and bg2 ? color.silver : color.white
+bgcol = bgc == 1 ? bgc1 : bgc == 2 ? bgc2 : bgc == 3 ? bgc3 : bgc == 4 ? bgc4 : bgc == 5 ? bgc5 : bgc6
 bgcolor(bgcol)
 //FRACTAL-FUNCTIONS- Fractal formula from Ricardo Santos 
 ftf(_src) =>
@@ -278,3 +273,105 @@ fib6        = plot(fib ? 38.2 : na, title="38.2", style=plot.style_line, linewid
 fib7        = plot(fib ? 30.9 : na, title="30.9", style=plot.style_line, linewidth=2, transp=70, color=teal)
 fib8        = plot(fib ? 23.6 : na, title="23.6", style=plot.style_line, linewidth=2, transp=70, color=green)
 fib9        = plot(fib ? 14.6 : na, title="14.6", style=plot.style_line, linewidth=2, transp=70, color=lime)
+
+//############################################trend trade system########################
+tts_src=close
+tts_ema_length = 26
+tts_vwap_length = 13
+tts_rsi_len = 14
+
+tts_ema = ema(low, tts_ema_length)
+tts_vwap = ema(vwap, tts_vwap_length)
+tts_rsi = rsi(close, 14)
+
+//plot(tts_vwap, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+//plot(tts_ema, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+
+//setup long
+tts_setupLong = int(na)
+tts_setupLong := if (tts_rsi > 55 and close > tts_ema) 
+    if (nz(tts_setupLong[1]) == 0) or (nz(tts_setupLong[1]) > 1)
+        nz(tts_setupLong[1]) + 1 //---------------------------------------->initiate the long setup
+    else 
+        if (nz(tts_setupLong[1]) == 1 and tts_rsi > 55 and tts_rsi < 75 and close > close[1] and close > open and high > high[1] and low > low[1])
+            nz(tts_setupLong[1]) + 1 //-----------------------------> setup long started other words entry
+        else
+            nz(tts_setupLong[1])
+else
+    if (tts_rsi > 50 and close > tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupLong[1]) > 1) //----------------------------------->if setup already started continue it
+            nz(tts_setupLong[1]) + 1
+        else // if setup did not start yet, retest the setup
+            0
+    else
+        0
+
+plotshape(tts_setupLong == 2, style=shape.arrowup, location=location.bottom, color=color.lime, transp=0, editable=false) 
+plotshape(((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1, style=shape.arrowdown, location=location.top, color=color.orange, transp=0, editable=false)
+//bgcolor(tts_setupLong == 2 ? color.lime : na, editable=false, transp=75)
+//bgcolor(((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1 ? color.yellow : na, editable=false, transp=75)
+
+//long pullback
+tts_setupLongPullBack = int(na)        
+tts_setupLongPullBack := if (nz(tts_setupLong[1]) > 1) //setup long started
+    //long pullback not started and current candle rsi > 50 and rsi < 55
+    if (nz(tts_setupLongPullBack[1]) == 0 and tts_rsi > 50 and tts_rsi < 55 and close > tts_ema) 
+        nz(tts_setupLongPullBack[1]) + 1
+    else
+        //pullback started and rsi > 55 and close > ema and previous close is greater than current close
+        if (nz(tts_setupLongPullBack[1]) > 0 and tts_rsi > 55 and close > tts_ema and close > close[1] and high > high[1] and close > open) 
+            nz(tts_setupLongPullBack[1]) + 1
+        else
+            if (nz(tts_setupLongPullBack[1]) > 1)
+                0
+            else
+                nz(tts_setupLongPullBack[1])
+else
+    0
+
+plotshape(tts_setupLongPullBack == 2 , style=shape.triangleup, location=location.bottom, color=color.teal, transp=0, editable=false)
+//bgcolor(tts_setupLongPullBack == 2 ? color.blue : na, editable=false, transp=75)    
+
+//short setup
+tts_setupShort = int(na)
+tts_setupShort := if (tts_rsi < 45 and close < tts_ema)
+    if (nz(tts_setupShort[1]) == 0) or (nz(tts_setupShort[1]) > 1)
+        nz(tts_setupShort[1]) + 1
+    else 
+        if (nz(tts_setupShort[1]) == 1 and tts_rsi < 50 and tts_rsi > 25 and close < close[1] and close < open and high < high[1] and low < low[1])
+            nz(tts_setupShort[1]) + 1 //------------------------------------------->starts the setup
+        else
+            nz(tts_setupShort[1])
+else
+    if (tts_rsi < 50 and close < tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupShort[1]) > 1) //--------------------------------->if greater than 1 means short setup started
+            nz(tts_setupShort[1]) + 1
+        else
+            nz(tts_setupShort[1])
+    else
+        0
+
+plotshape(tts_setupShort == 2, style=shape.arrowup, location=location.bottom, color=color.red, transp=0, editable=false) 
+plotshape(((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1, style=shape.arrowdown, location=location.top, color=color.blue, transp=0, editable=false)
+//bgcolor(tts_setupShort == 2 ? color.red : na, editable=false, transp=75)
+//bgcolor(((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1 ? color.orange : na, editable=false, transp=75)
+
+//short pullback
+tts_setupShortPullBack = int(na)        
+tts_setupShortPullBack := if (nz(tts_setupShort[1]) > 1) //setup short started
+    //short pullback not started and current candle rsi < 50 and rsi < 55
+    if (nz(tts_setupShortPullBack[1]) == 0 and tts_rsi > 45 and tts_rsi < 50 and close < tts_ema) 
+        nz(tts_setupShortPullBack[1]) + 1
+    else
+        //pullback started and rsi < 45 and close < tts_ema and close < close[1] and high < high[1] and close < open
+        if (nz(tts_setupShortPullBack[1]) > 0 and tts_rsi < 45 and close < tts_ema and close < close[1] and high < high[1] and close < open) 
+            nz(tts_setupShortPullBack[1]) + 1
+        else
+            if (nz(tts_setupShortPullBack[1]) > 1)
+                0
+            else
+                nz(tts_setupShortPullBack[1])
+else
+    0
+
+plotshape(tts_setupShortPullBack == 2 , style=shape.triangledown, location=location.top, color=color.orange, transp=0, editable=false)    

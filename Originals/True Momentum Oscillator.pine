@@ -1,0 +1,69 @@
+//@version=4
+study(title = "True Momentum Indicator")
+
+tmo_length = input(14, title="Length")
+calcLength = input(5, title="Calc length")
+smoothLength = input(3, title="Smooth length")
+lengthType = input("EMA", title="Length moving average type", options=["EMA", "SMA", "RMA"])
+calcLengthType = input("EMA", title="Calc length moving average type", options=["EMA", "SMA", "RMA"])
+smoothLengthType = input("EMA", title="Smooth length moving average type", options=["EMA", "SMA", "RMA"])
+
+//function for choosing moving averages
+f_ma(type, src, len) =>
+    float result = 0
+    if type == "EMA"
+        result := ema(src, len)
+    if type == "SMA"
+        result := sma(src, len)
+    if type == "RMA"
+        result := rma(src, len)
+    result
+    
+o = open
+c = close
+s = 0
+for i = 0 to tmo_length
+    s := s + (c > o[i] ? 1 : c < o[i] ? - 1 : 0)
+data = s
+    
+MA = f_ma(lengthType, data, calcLength)
+Main = f_ma(calcLengthType, MA, smoothLength)
+Signal = f_ma(smoothLengthType, Main, smoothLength)
+
+ob = hline(round(tmo_length * .7), title="overbought cutoff line", color=color.gray, linestyle=hline.style_solid)
+os = hline(-round(tmo_length * .7), title="oversold cutoff line", color=color.gray, linestyle=hline.style_solid)
+upper = hline(tmo_length, title="upper line", color=color.red, linestyle=hline.style_solid)
+lower = hline(-tmo_length, title="lower line", color=color.green, linestyle=hline.style_solid)
+zero = hline(0, title="zero line", color=color.gray, linestyle=hline.style_solid)
+
+mainPlot = plot(Main, title="main line", color=Main>Signal?color.green:color.red, linewidth=2)
+signalPlot = plot(Signal, title="signal line", color=Main>Signal?color.green:color.red)
+crossPlot = plot(cross(Main,Signal)?Main:na, title="crossover dot", color=Main>Signal?color.green:color.red, style=plot.style_circles, linewidth=3)
+
+fill(mainPlot, signalPlot, title="main and signal area", color=Main>Signal?color.green:color.red)
+fill(ob, upper, title="overbought zone", color=color.red)
+fill(os, lower, title="oversold zone", color=color.green)
+
+//fish
+//Fisherprice = hl2
+//fish_length = 10
+
+//maxHigh = highest(Fisherprice, fish_length)
+//minLow = lowest(Fisherprice, fish_length)
+//range = maxHigh - minLow
+//sto = range != 0 ? (Fisherprice - minLow) / range : 0
+
+//value =float(na)
+//value := (0.66 * (sto - 0.5)) + (0.67 * nz(value[1]))
+//truncValue = value > 0.99 ? 0.999 : value < -0.99 ? -0.999 : value
+//fish = 0.0
+//fish := (0.5 * log((1 + truncValue) / (1 - truncValue))) + (0.5 * nz(fish[1]))
+
+//sig = fish > nz(fish[1]) ? 1 : fish < nz(fish[1]) ? -1 : 0
+
+//buy_cond = crossover(sig, 0)
+//sell_cond = crossunder(sig, 0)
+
+//plotshape(buy_cond, color=color.green, style=shape.arrowup, location=location.bottom,  editable=false)
+//plotshape(sell_cond, color=color.red, style=shape.arrowdown, location=location.top,  editable=false)
+

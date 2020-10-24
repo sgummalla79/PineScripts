@@ -1,0 +1,32 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © sgummalla
+
+//@version=4
+study("UCS_Trend", overlay=true) // My Interpretation of TTM Trend bars. It is really close to the actual. 
+
+haclose = ohlc4
+haopen = float(na)
+haopen := na(haopen[1]) ? (open + close) / 2 : (haopen[1] + haclose[1]) / 2
+//hahigh = max(high, max(haopen, haclose))
+//halow = min(low, min(haopen, haclose))
+
+ccolor = haclose - haopen > 0 ? 1 : 0
+
+inside6 = haopen <= max(haopen[6],haclose[6]) and haopen>=min(haopen[6],haclose[6]) and haclose <= max(haopen[6],haclose[6]) and haclose >= min(haopen[6],haclose[6]) ? 1 : 0
+
+inside5 = haopen <= max(haopen[5],haclose[5]) and haopen>=min(haopen[5],haclose[5]) and haclose <= max(haopen[5],haclose[5]) and haclose >= min(haopen[5],haclose[5]) ? 1 : 0
+
+inside4 = haopen <= max(haopen[4],haclose[4]) and haopen>=min(haopen[4],haclose[4]) and haclose <= max(haopen[4],haclose[4]) and haclose >= min(haopen[4],haclose[4]) ? 1 : 0
+
+inside3 = haopen <= max(haopen[3],haclose[3]) and haopen>=min(haopen[3],haclose[3]) and haclose <= max(haopen[3],haclose[3]) and haclose >= min(haopen[3],haclose[3]) ? 1 : 0
+
+inside2 = haopen <= max(haopen[2],haclose[2]) and haopen>=min(haopen[2],haclose[2]) and haclose <= max(haopen[2],haclose[2]) and haclose >= min(haopen[2],haclose[2]) ? 1 : 0
+
+inside1 = haopen <= max(haopen[1],haclose[1]) and haopen>=min(haopen[1],haclose[1]) and haclose <= max(haopen[1],haclose[1]) and haclose >= min(haopen[1],haclose[1]) ? 1 : 0
+
+
+colorvalue = inside6 ? ccolor[6] : inside5 ? ccolor[5] : inside4 ? ccolor[4] : inside3 ? ccolor[3] : inside2 ? ccolor[2] : inside1 ? ccolor[1] : ccolor
+
+color = colorvalue ? color.blue : color.red
+
+barcolor(color)

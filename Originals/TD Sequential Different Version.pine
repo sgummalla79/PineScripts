@@ -1,0 +1,112 @@
+//@version=3
+study("TD Sequential",overlay=true)
+Transp = input(0, title="Transparency")
+CountdownNumbers = input(title="Countdown numbers", defval="Standard", options=["Standard", "Aggressive"])
+ContSetup = input(true, title="Contiunous setup count", type=bool)
+
+// SETUP
+sellSetup = 0
+sellSetup := close > close[4] ? sellSetup[1] == 9 and ContSetup ? 1 : sellSetup[1] + 1 : 0
+
+buySetup = 0
+buySetup := close < close[4] ? buySetup[1] == 9 and ContSetup ? 1 : buySetup[1] + 1 : 0
+
+setupCount = max(sellSetup, buySetup)
+setupCountColor = sellSetup > 0 ? green : red
+
+sellSetupArrowColor() => high > max(high[2], high[3]) or high[1] > max(high[2], high[3]) ? red : orange
+buySetupArrowColor() => low < min(low[2], low[3]) or low[1] < min(low[2], low[3]) ? green : lime
+
+plotchar(setupCount == 1, char="1", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 2, char="2", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 3, char="3", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 4, char="4", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 5, char="5", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 6, char="6", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 7, char="7", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotchar(setupCount == 8, char="8", color=setupCountColor, location=location.abovebar, transp=Transp)
+plotshape(sellSetup == 9, text="9", style=shape.arrowdown, textcolor=green, color=sellSetupArrowColor(), location=location.abovebar, transp=Transp)
+plotshape(buySetup == 9, text="9", style=shape.arrowup, textcolor=red, color=buySetupArrowColor(), location=location.abovebar, transp=Transp)
+
+// TRENDLINES
+highTrendLine = 0.0
+highTrendLine := buySetup == 9 ? highest(9)
+               : close > highTrendLine[1] ? 0
+               : highTrendLine[1]
+               
+lowTrendLine = 0.0
+lowTrendLine := sellSetup == 9 ? lowest(9)
+              : close < lowTrendLine[1] ? 0
+              : lowTrendLine[1]
+
+plot(highTrendLine > 0 ? highTrendLine : na, color=yellow, style=circles, linewidth=2, transp=Transp)
+plot(lowTrendLine > 0 ? lowTrendLine : na, color=#00BCD4, style=circles, linewidth=2, transp=Transp)
+
+// COUNTDOWN
+buyCountdown = 0.0
+buyCountdown8Close = 0.0
+isBuyCountdown = close < low[2]
+nonQualifiedBuy13 = isBuyCountdown and abs(buyCountdown[1]) == 12 and low > buyCountdown8Close[1]
+buyCountdown := buySetup == 9 ? (isBuyCountdown ? 1 : 0)
+              : sellSetup == 9 or highTrendLine == 0 ? 14
+              : nonQualifiedBuy13 ? -12
+              : isBuyCountdown ? abs(buyCountdown[1]) + 1
+              : -abs(buyCountdown[1])
+buyCountdown8Close := buyCountdown == 8 ? close : buyCountdown8Close[1]
+
+sellCountdown = 0.0
+sellCountdown8Close = 0.0
+isSellCountdown = close > high[2]
+nonQualifiedSell13 = isSellCountdown and abs(sellCountdown[1]) == 12 and high < sellCountdown8Close[1]
+sellCountdown := sellSetup == 9 ? (isSellCountdown ? 1 : 0)
+               : buySetup == 9 or lowTrendLine == 0 ? 14
+               : nonQualifiedSell13 ? -12
+               : isSellCountdown ? abs(sellCountdown[1]) + 1
+               : -abs(sellCountdown[1])
+sellCountdown8Close := sellCountdown == 8 ? close : sellCountdown8Close[1]
+
+isAggressiveBuy = low < low[2]
+aggressiveBuy = 0.0
+aggressiveBuy := buySetup == 9 ? (isAggressiveBuy ? 1 : 0)
+               : sellSetup == 9 or highTrendLine == 0 ? 14
+               : isAggressiveBuy ? abs(aggressiveBuy[1]) + 1
+               : -abs(aggressiveBuy[1])
+               
+isAggressiveSell = high > high[2]
+aggressiveSell = 0.0
+aggressiveSell := sellSetup == 9 ? (isAggressiveSell ? 1 : 0)
+               : buySetup == 9 or lowTrendLine == 0 ? 14
+               : isAggressiveSell ? abs(aggressiveSell[1]) + 1
+               : -abs(aggressiveSell[1])
+
+showStandardCountdown = CountdownNumbers == "Standard"
+showAggressiveCountdown = CountdownNumbers == "Aggressive"
+
+countdownColor = buyCountdown > 0 and buyCountdown < 14 or aggressiveBuy > 0 and aggressiveBuy < 14 or nonQualifiedBuy13 ? red : green
+
+countdownNumber = showStandardCountdown ? (buyCountdown > 0 and buyCountdown < 14 ? buyCountdown : sellCountdown)
+                 : showAggressiveCountdown ? (aggressiveBuy > 0 and aggressiveBuy < 14 ? aggressiveBuy : aggressiveSell)
+                 : na
+
+showStandard13Text = (buyCountdown == 13 or sellCountdown == 13) and not showStandardCountdown
+showAggressive13Text = (aggressiveBuy == 13 or aggressiveSell == 13) and not showAggressiveCountdown
+
+plotchar(countdownNumber == 1, char="", text="\n1", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 2, char="", text="\n2", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 3, char="", text="\n3", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 4, char="", text="\n4", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 5, char="", text="\n5", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 6, char="", text="\n6", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 7, char="", text="\n7", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 8, char="", text="\n8", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 9, char="", text="\n9", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 10, char="", text="\n10", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 11, char="", text="\n11", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 12, char="", text="\n12", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(countdownNumber == 13, char="", text="\n13", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(showStandard13Text, char="", text="S", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(showAggressive13Text, char="", text="A", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(nonQualifiedBuy13 and showStandardCountdown, char="", text="\n+", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotchar(nonQualifiedSell13 and showStandardCountdown, char="", text="\n+", textcolor=countdownColor, location=location.belowbar, transp=Transp)
+plotshape(buyCountdown == 13 or aggressiveBuy == 13, style=shape.arrowup, color=green, location=location.belowbar, transp=Transp)
+plotshape(sellCountdown == 13 or aggressiveSell == 13, style=shape.arrowdown, color=red, location=location.belowbar, transp=Transp)

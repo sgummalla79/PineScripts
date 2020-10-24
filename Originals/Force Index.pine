@@ -1,0 +1,70 @@
+// *****************************************************************************************
+// Author : KGYeo V3
+// Title  : Force Index and Fast Turtle Stochastic Indicator
+// Description :-
+//      This indicator is based on Dr Alexander Elder ForceIndex indicator 
+//      with relate price to volume by multiplying net change and volume. 
+
+//      1 - GREEN Bar and GREEN backgroud indicates Bull is in control 
+//      2 - RED Bar and RED backgroud indicates Bear is in control.
+//      
+//      LENGTH of the bar indicate the strength of Bull or Bear. 
+//      Normally there's potential BUY if the RED bar turned GREEN and SELL if GREEN to RED.
+//      
+//      On top of that, it's also include information about Stochastic momentum to detect 
+//      potential Reversal. BLUE bar will appear if :-
+//      1 - Oversold - Stochastic less than 35 (Default value set at 35)
+//      2 - Closing price is higher than last 2 High
+//
+// Note : Best use with "EMA Indicators with BUY sell Signal"
+//
+// ******************************************************************************************
+// Version 45.0 Release Version
+
+study(title="Force Index with Fast Turtle and Stochastic V3", shorttitle="FiFT Stoch V3", overlay=true)
+XLen1 = input(13, minval=1)
+XLen2 = input(5, minval=1)
+
+////////////////////////////////////////////////////////////
+NDays = input(14, minval=1)
+smoothD = input(3, minval=1)
+smoothK = input(3, minval=1)
+StocLine = input(35, minval=1)
+OverSoldLine = StocLine
+OverBoughtLine = 100 - StocLine
+
+xValue = volume * (close - close[1])
+xSMA1 = ema(xValue, XLen1)
+xSMA2 = ema(xSMA1, XLen2)
+
+// Stochastic and Fast Turtle
+
+a = stoch(close, high, low, NDays)
+k = sma(a, smoothK)
+d = sma(k, smoothD)
+
+highestHigh = highest(high[1], 2)
+lowestLow = lowest(low[1], 2)
+Hdata = close > highestHigh and d <= OverSoldLine
+Ldata = close < lowestLow and d >= OverBoughtLine 
+
+//plot(xSMA1, color = Hdata ? blue : xSMA1 > 0 ? green : red, style = histogram, linewidth=5, title="SlowAvg")
+bgcolor(xSMA1 > 0 ? green : red, transp=90, title="BGColor")
+
+//plot(xSMA2, color=red, title="FastAvg")
+plotchar(Hdata and xSMA1 > 0, location=location.top, char='⭐', color=green)
+plotshape(Hdata, style=shape.triangleup, location=location.bottom, text="OS",color=green )
+plotshape(Ldata, style=shape.triangledown, location=location.top, text="OB",color=red )
+
+// **************************** ( LS )
+
+// Current FI
+//FIValue0 = volume * (close - close[1])
+//FIBar_0 = ema(FIValue0, XLen1)
+//FIMA_0 = ema(FIBar_0, XLen2)
+
+
+
+
+//hline(0, color=green, linestyle=line) 
+

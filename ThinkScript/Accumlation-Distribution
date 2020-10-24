@@ -1,0 +1,14 @@
+declare lower;
+
+def data = if close > close[1] then close - Min(close[1], low) else if close < close[1] then close - Max(close[1], high) else 0;
+
+def AD = TotalSum(data);
+plot AccDist = (AD - lowestall(AD)) /(highestall(AD) - lowestall(AD));
+AccDist.SetDefaultColor(GetColor(1));
+
+def stoch = StochasticSlow("over bought" = 100, "over sold" = 0, "k period" = 14, "d period" = 1).SlowD;
+
+plot SlowD =  (stoch - lowestall(stoch)) /(highestall(stoch) - lowestall(stoch));
+
+plot one = 1;
+plot zero = 0;

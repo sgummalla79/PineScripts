@@ -1,0 +1,34 @@
+//@version=4
+study("My Script")
+o = open
+c = close
+h = high
+l = low
+AvgLength = 13
+Lengthchop = 13
+Choppy = 61.8
+MidLine = 50
+Trending = 38.2
+AVG = hma(c, AvgLength)
+
+trueRange() => na(high[1]) ? high-low : max(max(high - low, abs(high - close[1])), abs(low - close[1]))
+
+CI = ((log(sum(trueRange(), Lengthchop) / (highest(h >= c[1] ? h : c[1], Lengthchop) - lowest(l <= c[1] ? l : c[1], Lengthchop))) / log(10)) / (log(Lengthchop) / log(10))) * 100
+plot(CI)
+show_chop_label = 1
+chop_level = CI > MidLine and CI < 62  ? "MILD CHOP " + tostring(round(CI)) : CI >= 61.8 ? "STRONG CHOP " + tostring(round(CI)) : CI <= MidLine and CI > 31.8 ? "MILD TRENDING " + tostring(round(CI)) : "STRONG TRENDING " + tostring(round(CI))
+chop_label_color = CI > MidLine ? color.yellow : color.fuchsia
+
+trend_score = int(na)
+for _l = 11 to 20
+    trend_score := nz(trend_score) + (close >= close[_l] ? 1 : -1)
+        
+col1 = trend_score > 5
+col2 = trend_score < -5
+col_neutral = not col1 and not col2
+
+bull_bear_label = col1 ? "Bullish" : col2 ? "Bearish" : col_neutral ? "Neutral" : na
+
+var label _la = na
+label.delete(_la)
+_la := label.new(x=bar_index, y=CI + 5 , text=bull_bear_label, color=chop_label_color)

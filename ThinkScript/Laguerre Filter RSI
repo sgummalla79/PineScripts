@@ -1,0 +1,310 @@
+# RSI in Laguerre Time MTF Option_v3
+# Modification of Mobius's script of Elher's code 
+# Mobius
+# V02.07.2014
+# translation of J Elher's code
+#DISCLAIMER: Mobius mentioned that it was not his habit to give trading advice or even advice on how to use indicators. However, there's been such a proliferation of bad, inaccurate, false info regarding so many of them recently he felt compelled to give some accurate information.
+
+#Mobius©: I use a very simple method – RSI Laguerre and Fractal Energy on a list of very liquid stocks. I look for polarity change and trade when both RSI and FE are in “confluence”. If volatility is high enough I sell spreads if not I buy them. Other than hedging (which I do a lot of) that's it. I like it simple.
+
+#The typical base setting I like to use for the FE is a length of 8. If I'm trading options I like to look at it about the length of time I'm buying or selling the option for. I want to know if it's reverting and where the energy is so I'll use a longer length for reversion and a shorter length to see if energy is building or waning.
+
+#If RSI Laguerre is descending and FE over .6, that tells me something is changing and I'm already looking at an equity I've determined is about to make a polarity change. So the worse case that happens is that the security grinds sideways for a few days.
+
+#A reading of the FE over .6 is an indication that energy has been built up. If the FE is high (over .6) and RSI LaGuerre is breaking lower FE will follow suit. If RSI reverses and goes above .8 I'm outa there, with the assumption I have a short position.
+
+#FE is a gauge of both mean reverting and linearity. Descending readings indicate a trend is on. A reading below .3 indicates exhaustion in trend or near exhaustion. A reading above .6 indicates moving sideways with rapid reversion and energy building for a move again.
+
+#Above .6 - Think price compression or squeeze
+#Below .3 - Think running out of gas
+
+#Here's an example:
+
+#FE at 60 periods is oscillating around .5 tightly while FE at 8 periods is over .6. Zscore is over 2 and is starting to roll over. That is a good short to the mean.
+
+#Short trade setup I look for with RSI Laguerre adjusted with FE.
+
+#1) Polarity Change - Equity has gone from making higher highs and higher lows to making a lower high and lower low and is now putting in another lower high
+
+#2) RSI Laguerrer is above .8 and descending from 1
+
+#3) Fractal Energy is below .38 and nose down or above .6 and rolling over. In the first case, below .38, FE is indicating trend exahustion and RSI is likely showing as a peak and not running across pegged at 1. In the second case price has risen to a lower resistance and has been rolling slowly over building energy.
+
+
+# 20160708-blt added new MTF Option; added Target Code (similar to other versions)
+#              added rsi value coloring and clouds
+# 20160712-modified the target tracking to include entry and target bubbles. The entry bubbles will appear where there is a change in color of the rsi line
+# 20160714-changed atr from atr() to average(truerange(h,c,l),atrlength) to allow atr to be that of the higher timeframe when it's selected, rather than always the current timeframe for targets
+#20160715-v2a-added inputs to turn bubbles on/off
+#20160716-v3-added candle (normal open, high, low, close) vs candle_hybrid candle type in Mobius' original version. The candle option was included to use when this is combined with another indicator, such as the Fractal Energy indicator. The candle_hybrid seems smoother. A label is added to show what type of candle is being used....Bubble Movers are better defined...Shortened Target Bubble...Added input outputformat to handle bonds, forex, etc format
+
+declare lower;
+#Inputs: 
+input gamma              = .5;
+input usecandletype      = {candle, default candle_hybrid};
+input usehigheraggperiod = {default "Current", "Higher"};
+input agg                = AggregationPeriod.TWO_MIN;
+#Current uses the current chart agg. So if you are on a 1min chart the indicator is based on 1min. If you select higher, then whatever agg you enter at the input will be what is used for the RSI. So if you are on a 1min chart and higher is set to 2min, then a 2min RSI and the entries and targets are 2min based.
+input outputformat       = {default Rounded, "Not Rounded"};
+;#Hint outputformat: 'Not Rounded' is used for notes, bonds (eg: 109'110), forex, etc type format. 
+input atrlength          = 14;
+input atrfactor          = 3;
+input overbought         = .8;
+input oversold           = .2;
+# Variables:
+def o;
+def h;
+def l;
+def c;
+def CU1;
+def CU2;
+def CU;
+def CD1;
+def CD2;
+def CD;
+def L0;
+def L1;
+def L2;
+def L3;
+plot RSI;
+plot OS;
+plot OB;
+def error = usehigheraggperiod == usehigheraggperiod."Higher" and GetAggregationPeriod() > agg;
+# Calculations
+switch (usehigheraggperiod) {
+case Current:
+    if usecandletype == usecandletype.candle_hybrid {
+        o = (open + close[1]) / 2;
+        h = Max(high, close[1]);
+        l = Min(low, close[1]);
+        c = (o + h + l + close) / 4;
+    } else {
+        o = open;
+        h = high;
+        l = low;
+        c = close;
+    }
+case Higher:
+    if error {
+        o = Double.NaN;
+        h = Double.NaN;
+        l = Double.NaN;
+        c = Double.NaN;
+    } else {
+        if usecandletype == usecandletype.candle_hybrid {
+            o = (open(period = agg)     + close(period = agg)[1]) / 2;
+            h = Max(high(period = agg)  , close(period = agg)[1]);
+            l = Min(low(period = agg)   , close(period = agg)[1]);
+            c = ((open(period = agg)    + close(period = agg)[1]) / 2 
+            + Max(high(period = agg), close(period = agg)[1]) 
+            + Min(low(period = agg) , close(period = agg)[1]) 
+            + close(period = agg)) / 4;
+        } else {
+            o = open(period = agg);
+            h = high(period = agg);
+            l = low(period = agg);
+            c = close(period = agg);
+        }
+    }
+}
+AddLabel(yes, if usecandletype == usecandletype.candle
+              then "Candle"
+              else "Candle_Hybrid",
+              Color.LIGHT_GRAY);
+AddLabel(error, "Chart Aggregation Period is greater than RSI aggregation period. Need to Change input to a higher agg than current chart aggregation or choose 'Current' at input usehigheraggperiod", Color.WHITE);
+L0 = (1 – gamma) * c + gamma * L0[1];
+L1 = -gamma * L0 + L0[1] + gamma * L1[1];
+L2 = -gamma * L1 + L1[1] + gamma * L2[1];
+L3 = -gamma * L2 + L2[1] + gamma * L3[1];
+if L0 >= L1
+then {
+    CU1 = L0 - L1;
+    CD1 = 0;
+} else {
+    CD1 = L1 - L0;
+    CU1 = 0;
+}
+if L1 >= L2
+then {
+    CU2 = CU1 + L1 - L2;
+    CD2 = CD1;
+} else {
+    CD2 = CD1 + L2 - L1;
+    CU2 = CU1;
+}
+if L2 >= L3
+then {
+    CU = CU2 + L2 - L3;
+    CD = CD2;
+} else {
+    CU = CU2;
+    CD = CD2 + L3 - L2;
+}
+
+RSI = if IsNaN(close) then Double.NaN
+      else if CU + CD <> 0
+      then    CU / (CU + CD)
+      else 0;
+OS  = if IsNaN(close)
+      then Double.NaN else oversold;
+OB  = if IsNaN(close)
+      then Double.NaN
+      else overbought;
+plot mid = if IsNaN(close) then Double.NaN else 0.5;
+plot lineh = 1.35;
+plot linel = -.35;
+lineh.SetDefaultColor(Color.GRAY);
+linel.SetDefaultColor(Color.GRAY);
+mid.HideBubble();
+lineh.HideBubble();
+linel.HideBubble();
+def rsiu = if RSI crosses above OB or
+              RSI crosses above OS
+           then 1 
+           else if rsiu[1] == 1 and !(RSI crosses below OB) and RSI > OS
+           then 1
+           else 0;
+RSI.AssignValueColor(if rsiu
+                     then Color.GREEN 
+                     else Color.RED);
+
+input usealerts = no;
+Alert(usealerts and RSI crosses below overbought, "", Alert.BAR, Sound.Bell);
+Alert(usealerts and RSI crosses above oversold, "", Alert.BAR, Sound.Bell);
+
+AddCloud(if RSI >= overbought 
+         then RSI 
+         else Double.NaN, 
+         overbought, 
+         Color.GREEN, Color.GREEN);
+AddCloud(if RSI <= oversold 
+         then oversold
+         else Double.NaN,
+         RSI, 
+         Color.RED, Color.RED);
+
+AddLabel(yes, "RSI (" + (if usehigheraggperiod == usehigheraggperiod.Higher then agg / 60000 else GetAggregationPeriod() / 60000) + "min): " + Round(RSI, 2),
+               if RSI > 0 
+               then if RSI[1] > RSI
+                    then Color.DARK_GREEN
+                    else Color.GREEN
+               else if RSI[1] < RSI
+               then Color.DARK_RED 
+               else  Color.RED);
+
+
+def atr    = Average(TrueRange(h, c, l), atrlength);
+def entry  = if RSI crosses above oversold or rsiu[1] == 0 and RSI crosses above overbought
+             then close
+             else if RSI crosses below overbought or rsiu[1] and RSI crosses below oversold
+             then close
+             else entry[1];
+def ebar   = if RSI crosses above oversold or rsiu[1] == 0 and RSI crosses above overbought
+             then BarNumber()
+             else if RSI crosses below overbought or rsiu[1] and RSI crosses below oversold
+             then BarNumber()
+             else Double.NaN;
+def target = if RSI crosses above oversold or rsiu[1] == 0 and RSI crosses above overbought
+             then Round((close + (atrfactor * atr)) / TickSize(), 0) * TickSize()
+             else if RSI crosses below overbought or rsiu[1] and RSI crosses below oversold
+             then Round((close - (atrfactor * atr)) / TickSize(), 0) * TickSize()
+             else target[1];
+def u_d    = if RSI crosses above oversold or rsiu[1] == 0 and RSI crosses above overbought
+             then 1
+             else if RSI crosses below overbought or rsiu[1] and RSI crosses below oversold
+             then -1
+             else u_d[1];
+def goalu  = if u_d > 0  and  high >= target 
+             then 1
+             else if goalu[1] == 1 and u_d > 0
+             then 1
+             else 0;
+def goald  = if u_d < 0 and  low <= target
+             then 1
+             else if goald[1] == 1 and u_d < 0
+             then 1 
+             else 0;
+
+AddLabel(1,  if error then " "
+              else (if u_d > 0 then "Up " else "Down ") + 
+                    "Target "      + (if outputformat == outputformat."Not Rounded"
+                                     then AsPrice(target)
+                                     else AsText(target)) +   
+                    (if u_d < 0
+                     then if  goald == 0
+                     then " Need " + (if outputformat == outputformat."Not Rounded"
+                                     then AsPrice(target - close)
+                                     else AsText(Round((target - close), 2)))
+                     else " Met "
+                     else "") +
+                     (if u_d > 0
+                      then if goalu == 0
+                     then " Need " + (if outputformat == outputformat."Not Rounded"
+                                     then AsPrice(target - close)
+                                     else AsText(Round((target - close), 2)))
+                     else " Met "
+                     else ""),
+              if u_d < 0 and !goald or u_d > 0 and !goalu
+              then Color.WHITE
+              else Color.GREEN);
+
+input showentrybubble = yes;
+input bubblemover_entry_stop_targets = 2;#Hint bubblemover_entry_stop_targets: = number of spaces to move Entry, Stop and Target bubbles sideways
+def m   = bubblemover_entry_stop_targets;
+def  m1 = m + 1;
+AddChartBubble(showentrybubble and BarNumber() == HighestAll(ebar),
+               if RSI crosses above oversold or rsiu[1] and RSI crosses below oversold
+               then oversold
+               else overbought,
+               "Entry: " + if outputformat == outputformat."Not Rounded"
+                                     then AsPrice(entry)
+                                     else AsText(Round(entry, 2)),
+               if u_d > 0
+               then Color.GREEN    
+               else Color.RED,
+               if u_d > 0 
+               then no
+               else yes);
+
+input showtargetbubble = yes;
+AddChartBubble(showtargetbubble and IsNaN(close[m]) and !IsNaN(close[m1]),
+               if Between(RSI[m1], oversold, overbought) 
+               then RSI[m1]
+               else if u_d[m1] > 0
+               then overbought
+               else oversold,
+               if error[m1]
+               then " "
+               else (if u_d[m1] > 0 then "U-" else "D-") + 
+                    "Tgt "   +   (if outputformat == outputformat."Not Rounded"
+                                 then AsPrice(target[m1])
+                                 else AsText(target[m1])) +   
+                    (if u_d[m1] < 0 and !goald[m1] 
+                     then "\nDiff     " + (if outputformat == outputformat."Not Rounded"
+                                          then AsPrice(target[m1] - close[m1])
+                                          else if outputformat == outputformat."Not Rounded"
+                                          then AsPrice(target[m1] - close[m1])
+                                          else AsText(Round((target[m1] - close[m1]), 2)))
+                     else if u_d[m1] > 0 and !goalu[m1] 
+                     then "\nDiff      " + (if outputformat == outputformat."Not Rounded"
+                                           then AsPrice(target[m1] - close[m1])
+                                           else AsText(Round((target[m1] - close[m1]), 2)))
+                     else ""),
+              if u_d[m1] < 0 and !goald[m1] or u_d[m1] > 0 and !goalu[m1]
+              then Color.WHITE
+              else Color.GREEN,
+              if u_d[m1] < 0 
+              then no
+              else yes);
+#RSI Laguerre Bubble
+input showRSIbubble = no;
+input bubblemover_RSI = 20;#Hint bubblemover_RSI: = number of spaces to move RSI Laguerre indicator bubble sideways
+def   z  = bubblemover_RSI;
+def   z1 = z + 1;
+AddChartBubble(showRSIbubble and IsNaN(close[z]) and !IsNaN(close[z1]), 
+               mid[z1],
+               "R", 
+               if rsiu[z1]
+               then Color.GREEN 
+               else Color.RED);
+# End Code Basic RSI Laguerre

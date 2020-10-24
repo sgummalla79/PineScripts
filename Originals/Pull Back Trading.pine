@@ -1,0 +1,49 @@
+//@version=3
+study(shorttitle = "PBT", title="Pullback Trading [Fhenry0331]", overlay=false)
+
+// Trend Lenght: Cross of 13/26 is used. 
+ema1length = input(13)
+ema2length = input(26)
+
+ema1 = ema(close, 13)
+ema2 = ema (close, 26)
+
+//Black cross notates start of trend: aggresive entry can be used at the start of the trend.
+//13 ema above 26 ema: Long
+//13 ema below 26 ema: short
+//Entry should be above the intial bar that that started the trend. The cross "X"
+long = ema(close, 13)
+short = ema(close, 26)
+plot(cross(long, short) ? short : na,  style = cross, color = black, linewidth = 4)
+
+//Force Index with a lenght of "2" is used for pullbacks (lenght of "2" will produce a sensitive index)
+length = input(2, minval=1)
+efi = sma(change(close) * volume, length)
+plot(efi, color=blue, title="EFI")
+hline(0, title="Zero")
+
+//blue bars for uptrend
+cond1 = ema1 > ema2 
+barcolor (cond1 ? blue : na)
+bgcolor (cond1 ? lime : na)
+
+//purple bars for downtrend
+cond2 = ema2 > ema1
+barcolor (cond2 ? purple : na)
+bgcolor (cond2 ? red : na)
+
+//pullback in uptrend. Force Index below zero, but 13 ema is still above 26 ema(still uptrend)
+//price closes below 13 ema with the Force Index below the zero line
+//notates pullback in an uptrend
+//place buy orders above pullback bars notated aqua up triangle and also white background in the indicator
+cond3 = efi < 0 and low < ema1 and ema1 > ema2 ? 1:0
+plotshape(cond3, style=shape.triangleup, location=location.bottom, color=aqua, transp=0, offset=0) 
+bgcolor (cond3 ? white : na)
+
+//pullback in downtrend. Force Index above zero, but 26 ema is still above 13 ema (still downtrend)
+//price closes above 13 ema with the Force Index above zero
+//notates pullback in a downtrnd.
+//place sell orders below pullback bars notated red down triangle and also yellow/orange background in the indicator
+cond4 = efi > 0 and high > ema1 and ema1 < ema2 ? 1:0
+plotshape (cond4, style=shape.triangledown, location=location.top, color=red, transp=0, offset=0)
+bgcolor (cond4 ? yellow : na)
