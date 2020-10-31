@@ -1,0 +1,810 @@
+#######################
+Declare Lower;
+
+# GLOBAL DEFINITIONS
+
+DefineGlobalColor("TrendUp", CreateColor(0, 254, 30));
+
+DefineGlobalColor("TrendDown", CreateColor(255, 3, 2));
+
+
+
+input agg = AggregationPeriod.FIVE_MIN;
+
+input agg2 = AggregationPeriod.THIRTY_MIN;
+
+input agg3 = AggregationPeriod.HOUR;
+
+
+
+input DotSize = 5;
+
+input n = 17;
+
+def n1 = n + 1;
+
+def CP = close(Period = AGG);
+
+def CP2 = close(Period = AGG2);
+
+def CP3 = close(Period = AGG3);
+
+def VP = Volume(Period = AGG);
+
+def VP2 = Volume(Period = AGG2);
+
+def VP3 = Volume(Period = AGG3);
+
+def HP = High(Period = AGG);
+
+def HP2 = High(Period = AGG2);
+
+def HP3 = High(Period = AGG3);
+
+def LP = Low(Period = AGG);
+
+def LP2 = Low(Period = AGG2);
+
+def LP3 = Low(Period = AGG3);
+
+
+
+input Slength1 = 5;
+
+input LLength1 = 20;
+
+input Slength2 = 8;
+
+input LLength2 = 32;
+
+input Slength3 = 13;
+
+input LLength3 = 52;
+
+input Slength4 = 21;
+
+input LLength4 = 84;
+
+input Slength5 = 34;
+
+input LLength5 = 136;
+
+
+
+def PriceK1 = (Highest(HP, Slength1) + Lowest(LP, Slength1)) /
+
+2 + ExpAverage(CP, Slength1);
+
+def PriceKLong1 = (Highest(hP, Llength1) + Lowest(lP, Llength1)) /
+
+2 + ExpAverage(CP, Llength1);
+
+def PriceMomo1 = Inertia(CP – PriceK1 / 2, Slength1);
+
+def expAvgMomoPrice1 = ExpAverage(PriceMomo1, LLength1);
+
+def VN1 = SimpleMovingAvg(VP, Slength1);
+
+def volumeMultiplier1 = (VP/VN1);
+
+def Inertias1 = volumeMultiplier1*PriceMomo1;
+
+def avgInertia1 = ExpAvgMomoPrice1;
+
+def avgBullishInertia = avgInertia1 > 0;
+
+def avgBearishInertia = avgInertia1 < 0;
+
+def bullishLongSignal = Inertias1 crosses above avgInertia1 and avgBullishInertia;
+
+def bearishLongSignal = Inertias1 crosses below avgInertia1 and avgBullishInertia;
+
+def longHoldSignal = Inertias1 > avgInertia1 and !(Inertias1 crosses above avgInertia1) and avgBullishInertia;
+
+def bearishPivotSignal = Inertias1 < bearishLongSignal and Inertias1 < 0 and avgBullishInertia;
+
+def UncertainBullSignal = Inertias1 < bearishLongSignal and Inertias1 > 0 and avgBullishInertia;
+
+
+
+
+
+def bullishShortSignal = Inertias1 crosses below avgInertia1 and avgBearishInertia;
+
+def bearishShortSignal = Inertias1 crosses above avgInertia1 and avgBearishInertia;
+
+def shortHoldSignal = Inertias1 < avgInertia1 and !(Inertias1 crosses below avgInertia1) and avgBearishInertia;
+
+def bullishPivotSignal = Inertias1 > bearishLongSignal and Inertias1 > 0 and avgBearishInertia;
+
+def UncertainBearSignal = Inertias1 > bearishLongSignal and Inertias1 < 0 and avgBearishInertia;
+
+
+
+AddLabel( avgBullishInertia, "Agg 1 Long Plays Only" , Color.CYAN);
+
+AddLabel( bullishLongSignal, "Agg 1 Buy" , Color.Green);
+
+AddLabel( bearishLongSignal, "Agg 1 Sell" , Color.Red);
+
+AddLabel( longHoldSignal, "Agg 1 Hold Long" , Color.Green);
+
+AddLabel(bearishPivotSignal, "Agg 1 Possible Bearish Pivot Point", Color.Red);
+
+AddLabel(UncertainBullSignal, "Agg 1 Avoid Buys",Color.Blue);
+
+
+
+AddLabel( avgBearishInertia, "Agg 1 Short Plays Only", Color.Dark_RED);
+
+AddLabel( bullishShortSignal, "Agg 1 Short", Color.Green);
+
+AddLabel( bearishShortSignal, "Agg 1 Cover Short", Color.Red);
+
+AddLabel( shortHoldSignal, "Agg 1 Hold Short", Color.Green);
+
+AddLabel(bullishPivotSignal, "Agg 1 Possible Bullish Pivot Point", Color.Green);
+
+AddLabel(UncertainBearSignal, "Agg 1 Avoid Shorts",Color.Blue);
+
+
+
+
+
+def PriceK2 = (Highest(HP, Slength2) + Lowest(LP, Slength2)) /
+
+2 + ExpAverage(CP, Slength2);
+
+def PriceKLong2 = (Highest(hP, Llength2) + Lowest(lP, Llength2)) /
+
+2 + ExpAverage(CP, Llength2);
+
+def PriceMomo2 = Inertia(CP – PriceK2 / 2, Slength2);
+
+def expAvgMomoPrice2 = ExpAverage(PriceMomo2, LLength2);
+
+def VN2 = SimpleMovingAvg(VP, Slength2);
+
+def volumeMultiplier2 = (VP/VN2);
+
+def Inertias2 = volumeMultiplier2*PriceMomo2;
+
+def avgInertia2 = ExpAvgMomoPrice2;
+
+def avgBullishInertia2 = avgInertia2 > 0;
+
+def avgBearishInertia2 = avgInertia2 < 0;
+
+
+
+def PriceK3 = (Highest(HP, Slength3) + Lowest(LP, Slength3)) /
+
+2 + ExpAverage(CP, Slength3);
+
+def PriceKLong3 = (Highest(hP, Llength3) + Lowest(lP, Llength3)) /
+
+2 + ExpAverage(CP, Llength3);
+
+def PriceMomo3 = Inertia(CP – PriceK3 / 2, Slength3);
+
+def expAvgMomoPrice3 = ExpAverage(PriceMomo3, LLength3);
+
+def VN3 = SimpleMovingAvg(VP, Slength3);
+
+def volumeMultiplier3 = (VP/VN3);
+
+def Inertias3 = volumeMultiplier3*PriceMomo3;
+
+def avgInertia3 = ExpAvgMomoPrice3;
+
+def avgBullishInertia3 = avgInertia3 > 0;
+
+def avgBearishInertia3 = avgInertia3 < 0;
+
+
+
+def PriceK4 = (Highest(HP, Slength4) + Lowest(LP, Slength4)) /
+
+2 + ExpAverage(CP, Slength4);
+
+def PriceKLong4 = (Highest(hP, Llength4) + Lowest(lP, Llength4)) /
+
+2 + ExpAverage(CP, Llength4);
+
+def PriceMomo4 = Inertia(CP – PriceK4 / 2, Slength4);
+
+def expAvgMomoPrice4 = ExpAverage(PriceMomo4, LLength4);
+
+def VN4 = SimpleMovingAvg(VP, Slength4);
+
+def volumeMultiplier4 = (VP/VN4);
+
+def Inertias4 = volumeMultiplier4*PriceMomo4;
+
+def avgInertia4 = ExpAvgMomoPrice4;
+
+def avgBullishInertia4 = avgInertia4 > 0;
+
+def avgBearishInertia4 = avgInertia4 < 0;
+
+
+
+
+
+def PriceK5 = (Highest(HP, Slength5) + Lowest(LP, Slength5)) /
+
+2 + ExpAverage(CP, Slength5);
+
+def PriceKLong5 = (Highest(hP, Llength5) + Lowest(lP, Llength5)) /
+
+2 + ExpAverage(CP, Llength5);
+
+def PriceMomo5 = Inertia(CP – PriceK5 / 2, Slength5);
+
+def expAvgMomoPrice5 = ExpAverage(PriceMomo5, LLength5);
+
+def VN5 = SimpleMovingAvg(VP, Slength5);
+
+def volumeMultiplier5 = (VP/VN5);
+
+def Inertias5 = volumeMultiplier2*PriceMomo5;
+
+def avgInertia5 = ExpAvgMomoPrice5;
+
+def avgBullishInertia5 = avgInertia5 > 0;
+
+def avgBearishInertia5 = avgInertia5 < 0;
+
+
+
+## Agg2
+
+
+
+def BPriceK1 = (Highest(HP2, Slength1) + Lowest(LP2, Slength1)) /
+
+2 + ExpAverage(CP2, Slength1);
+
+def BPriceKLong1 = (Highest(hP2, Llength1) + Lowest(lP2, Llength1)) /
+
+2 + ExpAverage(CP2, Llength1);
+
+def BPriceMomo1 = Inertia(CP2 – BPriceK1 / 2, Slength1);
+
+def BexpAvgMomoPrice1 = ExpAverage(BPriceMomo1, LLength1);
+
+def BVN1 = SimpleMovingAvg(VP2, Slength1);
+
+def BvolumeMultiplier1 = (VP2/BVN1);
+
+def BInertias1 = BvolumeMultiplier1*BPriceMomo1;
+
+def BavgInertia1 = BExpAvgMomoPrice1;
+
+def BavgBullishInertia = BavgInertia1 > 0;
+
+def BavgBearishInertia = BavgInertia1 < 0;
+
+def BbullishLongSignal = BInertias1 crosses above BavgInertia1 and BavgBullishInertia;
+
+def BbearishLongSignal = BInertias1 crosses below BavgInertia1 and BavgBullishInertia;
+
+def BlongHoldSignal = BInertias1 > BavgInertia1 and !(BInertias1 crosses above BavgInertia1) and BavgBullishInertia;
+
+def BbearishPivotSignal = BInertias1 < BbearishLongSignal and BInertias1 < 0 and BavgBullishInertia;
+
+def BUncertainBullSignal = BInertias1 < BbearishLongSignal and BInertias1 > 0 and BavgBullishInertia;
+
+
+
+def BbullishShortSignal = BInertias1 crosses below BavgInertia1 and BavgBearishInertia;
+
+def BbearishShortSignal = BInertias1 crosses above BavgInertia1 and BavgBearishInertia;
+
+def BshortHoldSignal = BInertias1 < BavgInertia1 and !(BInertias1 crosses below BavgInertia1) and BavgBearishInertia;
+
+def BbullishPivotSignal = BInertias1 > BbearishLongSignal and BInertias1 > 0 and BavgBearishInertia;
+
+def BUncertainBearSignal = BInertias1 > BbearishLongSignal and BInertias1 < 0 and BavgBearishInertia;
+
+
+
+AddLabel( BavgBullishInertia, "Agg2 Long Plays Only" , Color.CYAN);
+
+AddLabel( BbullishLongSignal, "Agg 2 Buy" , Color.Green);
+
+AddLabel( BbearishLongSignal, "Agg 2Sell" , Color.Red);
+
+AddLabel( BlongHoldSignal, "Agg 2 Hold Long" , Color.Green);
+
+AddLabel(BbearishPivotSignal, "Agg 2 Possible Bearish Pivot Point", Color.Red);
+
+AddLabel(BUncertainBullSignal, "Agg 2 Avoid Buys",Color.Blue);
+
+
+
+AddLabel( BavgBearishInertia, "Agg 2 Short Plays Only", Color.Dark_RED);
+
+AddLabel( BbullishShortSignal, "Agg 2 Short", Color.Green);
+
+AddLabel( BbearishShortSignal, "Agg 2 Cover Short", Color.Red);
+
+AddLabel( BshortHoldSignal, "Agg 2 Hold Short", Color.Green);
+
+AddLabel(BbullishPivotSignal, "Agg 2 Possible Bullish Pivot Point", Color.Green);
+
+AddLabel(BUncertainBearSignal, "Agg 2 Avoid Shorts",Color.Blue);
+
+
+
+
+
+def BPriceK2 = (Highest(HP2, Slength2) + Lowest(LP2, Slength2)) /
+
+2 + ExpAverage(CP2, Slength2);
+
+def BPriceKLong2 = (Highest(hP2, Llength2) + Lowest(lP2, Llength2)) /
+
+2 + ExpAverage(CP2, Llength2);
+
+def BPriceMomo2 = Inertia(CP2 – BPriceK2 / 2, Slength2);
+
+def BexpAvgMomoPrice2 = ExpAverage(BPriceMomo2, LLength2);
+
+def BVN2 = SimpleMovingAvg(VP2, Slength2);
+
+def BvolumeMultiplier2 = (VP2/BVN2);
+
+def BInertias2 = BvolumeMultiplier2*BPriceMomo2;
+
+def BavgInertia2 = BExpAvgMomoPrice2;
+
+def BavgBullishInertia2 = BavgInertia2 > 0;
+
+def BavgBearishInertia2 = BavgInertia2 < 0;
+
+
+
+def BPriceK3 = (Highest(HP2, Slength3) + Lowest(LP2, Slength3)) /
+
+2 + ExpAverage(CP2, Slength3);
+
+def BPriceKLong3 = (Highest(hP2, Llength3) + Lowest(lP2, Llength3)) /
+
+2 + ExpAverage(CP2, Llength3);
+
+def BPriceMomo3 = Inertia(CP2 – BPriceK3 / 2, Slength3);
+
+def BexpAvgMomoPrice3 = ExpAverage(BPriceMomo3, LLength3);
+
+def BVN3 = SimpleMovingAvg(VP2, Slength3);
+
+def BvolumeMultiplier3 = (VP2/BVN3);
+
+def BInertias3 = BvolumeMultiplier3*BPriceMomo3;
+
+def BavgInertia3 = BExpAvgMomoPrice3;
+
+def BavgBullishInertia3 = BavgInertia3 > 0;
+
+def BavgBearishInertia3 = BavgInertia3 < 0;
+
+
+
+def BPriceK4 = (Highest(HP2, Slength4) + Lowest(LP2, Slength4)) /
+
+2 + ExpAverage(CP2, Slength4);
+
+def BPriceKLong4 = (Highest(hP2, Llength4) + Lowest(lP2, Llength4)) /
+
+2 + ExpAverage(CP2, Llength4);
+
+def BPriceMomo4 = Inertia(CP2 – BPriceK4 / 2, Slength4);
+
+def BexpAvgMomoPrice4 = ExpAverage(BPriceMomo4, LLength4);
+
+def BVN4 = SimpleMovingAvg(VP2, Slength4);
+
+def BvolumeMultiplier4 = (VP2/BVN4);
+
+def BInertias4 = BvolumeMultiplier4*BPriceMomo4;
+
+def BavgInertia4 = BExpAvgMomoPrice4;
+
+def BavgBullishInertia4 = BavgInertia4 > 0;
+
+def BavgBearishInertia4 = BavgInertia4 < 0;
+
+
+
+def BPriceK5 = (Highest(HP2, Slength5) + Lowest(LP2, Slength5)) /
+
+2 + ExpAverage(CP2, Slength5);
+
+def BPriceKLong5 = (Highest(hP2, Llength5) + Lowest(lP2, Llength5)) /
+
+2 + ExpAverage(CP2, Llength5);
+
+def BPriceMomo5 = Inertia(CP2 – BPriceK5 / 2, Slength5);
+
+def BexpAvgMomoPrice5 = ExpAverage(BPriceMomo5, LLength5);
+
+def BVN5 = SimpleMovingAvg(VP2, Slength5);
+
+def BvolumeMultiplier5 = (VP2/BVN5);
+
+def BInertias5 = BvolumeMultiplier2*BPriceMomo5;
+
+def BavgInertia5 = BExpAvgMomoPrice5;
+
+def BavgBullishInertia5 = BavgInertia5 > 0;
+
+def BavgBearishInertia5 = BavgInertia5 < 0;
+
+
+
+##### Agg3
+
+
+
+def CPriceK1 = (Highest(HP3, Slength1) + Lowest(LP3, Slength1)) /
+
+2 + ExpAverage(CP3, Slength1);
+
+def CPriceKLong1 = (Highest(hP3, Llength1) + Lowest(lP3, Llength1)) /
+
+2 + ExpAverage(CP3, Llength1);
+
+def CPriceMomo1 = Inertia(CP3 – CPriceK1 / 2, Slength1);
+
+def CexpAvgMomoPrice1 = ExpAverage(CPriceMomo1, LLength1);
+
+def CVN1 = SimpleMovingAvg(VP3, Slength1);
+
+def CvolumeMultiplier1 = (VP3/CVN1);
+
+def CInertias1 = CvolumeMultiplier1*CPriceMomo1;
+
+def CavgInertia1 = CExpAvgMomoPrice1;
+
+def CavgBullishInertia = CavgInertia1 > 0;
+
+def CavgBearishInertia = CavgInertia1 < 0;
+
+def CbullishLongSignal = CInertias1 crosses above CavgInertia1 and CavgBullishInertia;
+
+def CbearishLongSignal = CInertias1 crosses below CavgInertia1 and CavgBullishInertia;
+
+def ClongHoldSignal = CInertias1 > CavgInertia1 and !(CInertias1 crosses above CavgInertia1) and CavgBullishInertia;
+
+def CbearishPivotSignal = CInertias1 < CbearishLongSignal and CInertias1 < 0 and CavgBullishInertia;
+
+def CUncertainBullSignal = CInertias1 < CbearishLongSignal and CInertias1 > 0 and CavgBullishInertia;
+
+
+
+
+
+def CbullishShortSignal = CInertias1 crosses below CavgInertia1 and CavgBearishInertia;
+
+def CbearishShortSignal = CInertias1 crosses above CavgInertia1 and CavgBearishInertia;
+
+def CshortHoldSignal = CInertias1 < CavgInertia1 and !(CInertias1 crosses below CavgInertia1) and CavgBearishInertia;
+
+def CbullishPivotSignal = CInertias1 > CbearishLongSignal and CInertias1 > 0 and CavgBearishInertia;
+
+def CUncertainBearSignal = CInertias1 > CbearishLongSignal and CInertias1 < 0 and CavgBearishInertia;
+
+
+
+AddLabel( CavgBullishInertia, "Agg 3 Long Plays Only" , Color.CYAN);
+
+AddLabel( CbullishLongSignal, "Agg 3 Buy" , Color.Green);
+
+AddLabel( CbearishLongSignal, "Agg 3 Sell" , Color.Red);
+
+AddLabel( ClongHoldSignal, "Agg 3 Hold Long" , Color.Green);
+
+AddLabel(CbearishPivotSignal, "Agg 3 Possible Bearish Pivot Point", Color.Red);
+
+AddLabel(CUncertainBullSignal, "Agg 3 Avoid Buys",Color.Blue);
+
+
+
+AddLabel( CavgBearishInertia, "Agg 3 Short Plays Only", Color.Dark_RED);
+
+AddLabel( CbullishShortSignal, "Agg 3 Short", Color.Green);
+
+AddLabel( CbearishShortSignal, "Agg 3 Cover Short", Color.Red);
+
+AddLabel( CshortHoldSignal, "Agg 3 Hold Short", Color.Green);
+
+AddLabel(CbullishPivotSignal, "Agg 3 Possible Bullish Pivot Point", Color.Green);
+
+AddLabel(CUncertainBearSignal, "Agg 3 Avoid Shorts",Color.Blue);
+
+
+
+def CPriceK2 = (Highest(HP3, Slength2) + Lowest(LP3, Slength2)) /
+
+2 + ExpAverage(CP3, Slength2);
+
+def CPriceKLong2 = (Highest(hP3, Llength2) + Lowest(lP3, Llength2)) /
+
+2 + ExpAverage(CP3, Llength2);
+
+def CPriceMomo2 = Inertia(CP3 – CPriceK2 / 2, Slength2);
+
+def CexpAvgMomoPrice2 = ExpAverage(CPriceMomo2, LLength2);
+
+def CVN2 = SimpleMovingAvg(VP3, Slength2);
+
+def CvolumeMultiplier2 = (VP3/CVN2);
+
+def CInertias2 = CvolumeMultiplier2*CPriceMomo2;
+
+def CavgInertia2 = CExpAvgMomoPrice2;
+
+def CavgBullishInertia2 = CavgInertia2 > 0;
+
+def CavgBearishInertia2 = CavgInertia2 < 0;
+
+
+
+def CPriceK3 = (Highest(HP3, Slength3) + Lowest(LP3, Slength3)) /
+
+2 + ExpAverage(CP3, Slength3);
+
+def CPriceKLong3 = (Highest(hP3, Llength3) + Lowest(lP3, Llength3)) /
+
+2 + ExpAverage(CP3, Llength3);
+
+def CPriceMomo3 = Inertia(CP3 – CPriceK3 / 2, Slength3);
+
+def CexpAvgMomoPrice3 = ExpAverage(CPriceMomo3, LLength3);
+
+def CVN3 = SimpleMovingAvg(VP3, Slength3);
+
+def CvolumeMultiplier3 = (VP3/CVN3);
+
+def CInertias3 = CvolumeMultiplier3*CPriceMomo3;
+
+def CavgInertia3 = CExpAvgMomoPrice3;
+
+def CavgBullishInertia3 = CavgInertia3 > 0;
+
+def CavgBearishInertia3 = CavgInertia3 < 0;
+
+
+
+def CPriceK4 = (Highest(HP3, Slength4) + Lowest(LP3, Slength4)) /
+
+2 + ExpAverage(CP3, Slength4);
+
+def CPriceKLong4 = (Highest(hP3, Llength4) + Lowest(lP3, Llength4)) /
+
+2 + ExpAverage(CP3, Llength4);
+
+def CPriceMomo4 = Inertia(CP3 – CPriceK4 / 2, Slength4);
+
+def CexpAvgMomoPrice4 = ExpAverage(CPriceMomo4, LLength4);
+
+def CVN4 = SimpleMovingAvg(VP3, Slength4);
+
+def CvolumeMultiplier4 = (VP3/CVN4);
+
+def CInertias4 = CvolumeMultiplier4*CPriceMomo4;
+
+def CavgInertia4 = CExpAvgMomoPrice4;
+
+def CavgBullishInertia4 = CavgInertia4 > 0;
+
+def CavgBearishInertia4 = CavgInertia4 < 0;
+
+
+
+def CPriceK5 = (Highest(HP3, Slength5) + Lowest(LP3, Slength5)) /
+
+2 + ExpAverage(CP3, Slength5);
+
+def CPriceKLong5 = (Highest(hP3, Llength5) + Lowest(lP3, Llength5)) /
+
+2 + ExpAverage(CP3, Llength5);
+
+def CPriceMomo5 = Inertia(CP3 – CPriceK5 / 2, Slength5);
+
+def CexpAvgMomoPrice5 = ExpAverage(CPriceMomo5, LLength5);
+
+def CVN5 = SimpleMovingAvg(VP3, Slength5);
+
+def CvolumeMultiplier5 = (VP3/CVN5);
+
+def CInertias5 = CvolumeMultiplier2*CPriceMomo5;
+
+def CavgInertia5 = CExpAvgMomoPrice5;
+
+def CavgBullishInertia5 = CavgInertia5 > 0;
+
+def CavgBearishInertia5 = CavgInertia5 < 0;
+
+
+
+#########Plots
+
+plot PMoV1_Dot = if IsNaN(cp) then Double.NaN else 1;
+
+PMoV1_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+PMoV1_Dot.SetLineWeight(DotSize);
+
+PMoV1_Dot.AssignValueColor(if Inertias1 < avgInertia1 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 1, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot PMoV2_Dot = if IsNaN(cp) then Double.NaN else 2;
+
+PMoV2_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+PMoV2_Dot.SetLineWeight(DotSize);
+
+PMoV2_Dot.AssignValueColor(if Inertias2 < avgInertia2 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 2, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot PMoV3_Dot = if IsNaN(cp) then Double.NaN else 3;
+
+PMoV3_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+PMoV3_Dot.SetLineWeight(DotSize);
+
+PMoV3_Dot.AssignValueColor(if Inertias3 < avgInertia3 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 3, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot PMoV4_Dot = if IsNaN(cp) then Double.NaN else 4;
+
+PMoV4_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+PMoV4_Dot.SetLineWeight(DotSize);
+
+PMoV4_Dot.AssignValueColor(if Inertias4 < avgInertia4 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 4, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot PMoV5_Dot = if IsNaN(cp) then Double.NaN else 5;
+
+PMoV5_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+PMoV5_Dot.SetLineWeight(DotSize);
+
+PMoV5_Dot.AssignValueColor(if Inertias5 < avgInertia5 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 5, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot BPMoV1_Dot = if IsNaN(cp2) then Double.NaN else 7;
+
+BPMoV1_Dot.SetPaintingStrategy(PaintingStrategy.POINTS);
+
+BPMoV1_Dot.SetLineWeight(DotSize);
+
+BPMoV1_Dot.AssignValueColor(if BInertias1 < BavgInertia1 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp [n1]) and IsNaN(CP [n]), 7, (agg/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot BPMoV2_Dot = if IsNaN(cp2) then Double.NaN else 8;
+
+BPMoV2_Dot.SetPaintingStrategy(PaintingStrategy.POINTS);
+
+BPMoV2_Dot.SetLineWeight(DotSize);
+
+BPMoV2_Dot.AssignValueColor(if BInertias2 < BavgInertia2 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp2 [n1]) and IsNaN(CP2 [n]), 8, (agg2/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot BPMoV3_Dot = if IsNaN(cp2) then Double.NaN else 9;
+
+BPMoV3_Dot.SetPaintingStrategy(PaintingStrategy.POINTS);
+
+BPMoV3_Dot.SetLineWeight(DotSize);
+
+BPMoV3_Dot.AssignValueColor(if BInertias3 < BavgInertia3 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp2 [n1]) and IsNaN(CP2 [n]), 9, (agg2/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot BPMoV4_Dot = if IsNaN(cp2) then Double.NaN else 10;
+
+BPMoV4_Dot.SetPaintingStrategy(PaintingStrategy.POINTS);
+
+BPMoV4_Dot.SetLineWeight(DotSize);
+
+BPMoV4_Dot.AssignValueColor(if BInertias4 < BavgInertia4 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp2 [n1]) and IsNaN(CP2 [n]), 10, (agg2/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot BPMoV5_Dot = if IsNaN(cp2) then Double.NaN else 11;
+
+BPMoV5_Dot.SetPaintingStrategy(PaintingStrategy.POINTS);
+
+BPMoV5_Dot.SetLineWeight(DotSize);
+
+BPMoV5_Dot.AssignValueColor(if BInertias5 < BavgInertia5 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp2 [n1]) and IsNaN(CP2 [n]), 11, (agg2/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot CPMoV1_Dot = if IsNaN(cp3) then Double.NaN else 13;
+
+CPMoV1_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+CPMoV1_Dot.SetLineWeight(DotSize);
+
+CPMoV1_Dot.AssignValueColor(if CInertias1 < CavgInertia1 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp3 [n1]) and IsNaN(CP3 [n]), 13, (agg3/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot CPMoV2_Dot = if IsNaN(cp3) then Double.NaN else 14;
+
+CPMoV2_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+CPMoV2_Dot.SetLineWeight(DotSize);
+
+CPMoV2_Dot.AssignValueColor(if CInertias2 < CavgInertia2 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp3 [n1]) and IsNaN(CP3 [n]), 14, (agg3/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot CPMoV3_Dot = if IsNaN(cp3) then Double.NaN else 15;
+
+CPMoV3_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+CPMoV3_Dot.SetLineWeight(DotSize);
+
+CPMoV3_Dot.AssignValueColor(if CInertias3 < CavgInertia3 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp3 [n1]) and IsNaN(CP3 [n]), 15, (agg3/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot CPMoV4_Dot = if IsNaN(cp3) then Double.NaN else 16;
+
+CPMoV4_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+CPMoV4_Dot.SetLineWeight(DotSize);
+
+CPMoV4_Dot.AssignValueColor(if CInertias4 < CavgInertia4 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp3 [n1]) and IsNaN(CP3 [n]), 16, (agg3/1000/60) + " min", Color.Yellow, yes);
+
+
+
+plot CPMoV5_Dot = if IsNaN(cp3) then Double.NaN else 17;
+
+CPMoV5_Dot.SetPaintingStrategy(PaintingStrategy.TRIANGLES);
+
+CPMoV5_Dot.SetLineWeight(DotSize);
+
+CPMoV5_Dot.AssignValueColor(if CInertias5 < CavgInertia5 then GlobalColor("TrendDown") else GlobalColor("TrendUp"));
+
+AddChartBubble(!IsNaN(cp3 [n1]) and IsNaN(CP3 [n]), 17, (agg3/1000/60) + " min", Color.Yellow, yes);

@@ -53,6 +53,8 @@ pulse_coeff = 2 / (pulse_length + 1) * abs(pulse_ad3) / 100
 pulse_asd = float(na)
 pulse_asd := (pulse_coeff * pluse_src) + ((1 - pulse_coeff) * nz(pulse_asd[1])) // Calculate moving average
 
+coeff * price + (if IsNaN(asd[1]) then 0 else asd[1]) * (1 - coeff)
+
 pulse_vwma8 = sum(volume * close, 8) / sum(volume, 8)
 pulse_vwma21 = sum(volume * close, 21) / sum(volume, 21)
 pulse_vwma34 = sum(volume * close, 34) / sum(volume, 34)

@@ -1,0 +1,104 @@
+# FVO_Fisher_CCI_Combo
+# Recycled Indicators - combined by @cos251
+# 2020.10.01    -    The script will calculate then FisherTransform and CCI in combinationto generate signals
+#                    indicating possible trend.  The signals alone are not buy or sell signals but only a
+#                    combination of two indicators to provide indication or trend as they relate to the two
+#                    indicators mentioned.
+
+
+# Signals            GREEN UP ARROW - FT crossed above FTOneBarBack and CCI has crossed above +100
+#                    DARK_GREEN UP ARROW - FT crossed above FTOneBarBack and CCI > CCI[1]
+#                    RED DOWN ARROW - FT crossed below FTOneBarBack and CCI has crossed below -100
+#                    DARK_RED DOWN ARROW - FT crossed below FTOneBarBack and CCI < CCI[1]
+###############################################################################################################
+
+
+declare upper;
+
+#### Fisher Transform Inputs
+input length = 10;
+input volumeFastLength = 1;
+input volumeSlowLength = 20;
+input volumeOscThreshold = 0.5;
+
+###### CCI Inputs
+input lengthCCI = 14;
+input over_sold = -100;
+input over_bought = 100;
+input showBreakoutSignals = no;
+def offset = .5;
+
+###################### Calculate Fisher Transform & CCI ###########################################
+def maxHigh;
+def minLow;
+def range;
+def value;
+def truncValue;
+def fish;
+def FTUpArrow;
+def FTDownArrow;
+def FTOneBarBack;
+
+maxHigh = Highest(hl2(), length);
+minLow = Lowest(hl2(), length);
+range = maxHigh - minLow;
+value = if IsNaN(hl2()) then Double.NaN else if IsNaN(range)
+    then value[1] else if range == 0 then 0 else 0.66 * ((hl2() - minLow) / range - 0.5) + 0.67 * value[1];
+truncValue = if value > 0.99 then 0.999 else if value < -0.99 then -0.999 else value;
+fish = 0.5 * (log((1 + truncValue) / (1 - truncValue)) + fish[1]);
+FTOneBarBack = fish[1];
+FTUpArrow = if (fish[1] < FTOneBarBack[1]) and (fish > FTOneBarBack) then 1 else
+    Double.NaN;
+FTDownArrow = if (fish[1] > FTOneBarBack[1]) and (fish < FTOneBarBack) then 1 else
+    Double.Nan;
+
+
+# CCI Calculation
+def price;
+def linDev;
+def CCI;
+price = close() + low() + high();
+linDev = lindev(price, lengthCCI);
+CCI = if linDev == 0 then 0 else (price - Average(price, lengthCCI)) / linDev / 0.015;
+
+# Signals for both FisherTransform and CCI
+# Find if CCI current is crossed above AND is greater than 100 within previou 2 bars
+def CCIUpSignal = if lowest(CCI[1],2) < 100 and CCI > 100 then 1 else Double.Nan;
+# Find if CCI current is crossed below  AND is less than -100 within previou 2 bars
+def CCIDownSignal = if highest(CCI[1],2) > -100 and CCI < -100 then 1 else Double.Nan;
+# Find if curent fish is greater then fish previous at least 2 bars back
+def FTUp = if lowest(fish[1],2) < FTOneBarBack and fish > FTOneBarBack then 1 else Double.NaN;
+# Find if current fish is less than previous fish at least 2 bars back
+def FTDOWN = if highest(fish[1],2) > FTOneBarBack and fish < FTOneBarBack then 1 else Double.NaN;
+
+##### PLOTS  #####
+# Plot arrow if CCI crossed above +100 and is currently greater than +100 and FT has crossed above FTOneBarBack
+plot comboUP = if CCIUpSignal and FTUp then 1 else double.Nan;
+comboUP.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+comboUP.AssignValueColor(Color.GREEN);
+# Plot arrow if CCI crossed below -100 and is currently less than -100 and FT has crossed below FTOneBarBack
+plot comboDown = if CCIDownSignal and FTDown then 1 else double.Nan;
+comboDown.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+comboDown.AssignValueColor(Color.RED);
+
+
+# Signal - Plot if FT has crossed above FTOneBarBack and CCI is greater than previous CCI
+plot fishUPCCIUp = if (FTOneBarBack[1] > fish[1] and FTOneBarBack < fish and CCI > CCI[1]) then 1 else Double.Nan;
+fishUPCCIUp.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_UP);
+fishUPCCIUp.AssignValueColor(Color.DARK_GREEN);
+# Signal - Plot if FT has crossed below FTOneBarBack and CCI is less than previous CCI
+plot fishDownCCIDown = if (FTOneBarBack[1] < fish[1] and FTOneBarBack > fish and CCI < CCI[1]) then 1 else Double.Nan;
+fishDownCCIDown.SetPaintingStrategy(PaintingStrategy.BOOLEAN_ARROW_DOWN);
+fishDownCCIDown.AssignValueColor(Color.DARK_RED);
+
+
+
+###################################################################
+# Volume Spike
+# Credit to Raghee Horner shared scripts shared_ST
+def volumeOsc = reference VolumeOsc("fast length" = volumeFastLength, "slow length" = volumeSlowLength, "diff type" = "percent");
+plot VolumeSpike = volumeOsc > volumeOscThreshold;
+VolumeSpike.SetDefaultColor(Color.CYAN);
+VolumeSpike.SetLineWeight(3);
+VolumeSpike.SetPaintingStrategy(PaintingStrategy.BOOLEAN_POINTS);
+###################################################################

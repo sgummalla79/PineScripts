@@ -1,0 +1,310 @@
+//@version=4
+study(title = "Accumulation/Distribution", shorttitle="MACD")
+
+o = open
+c = close
+h = high
+l = low
+
+barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+label_xPos   = timenow + barSize*10
+
+
+totalall(s) => 
+    totalall = float(na)
+    totalall := na(totalall[1]) ? s : totalall[1] + s
+    totalall
+
+highestall(s) => 
+    maxall = float(na)
+    maxall := na(maxall[1]) ? s : max(maxall[1], s)
+    maxall
+
+lowestall(s) => 
+    minall = float(na)
+    minall := na(minall[1]) ? s : min(minall[1], s)
+    minall
+    
+trueRange() => na(h[1]) ? h-l : max(max(h - l, abs(h - c[1])), abs(l - c[1]))
+
+f_ma(type, src, len) =>
+    float result = 0
+    if type == "EMA"
+        result := ema(src, len)
+    if type == "SMA"
+        result := sma(src, len)
+    if type == "RMA"
+        result := rma(src, len)
+    result
+
+//###########Accumlation Distrbution//////////
+acd_data = c > c[1] ? c - min(c[1], l) : c < c[1] ? c - max(c[1], h) : 0
+acd_ad = totalall(acd_data)
+acd_accDist = (acd_ad - lowestall(acd_ad)) /(highestall(acd_ad) - lowestall(acd_ad))
+
+acd_smoothK = 14
+acd_smoothD = 1
+acd_k = sma(stoch(c, h, l, acd_smoothK), 3)
+acd_d = sma(acd_k, acd_smoothD)
+acd_slowd =  (acd_d - lowestall(acd_d)) /(highestall(acd_d) - lowestall(acd_d))
+
+acd_p1=hline(1, color = color.red, editable=false)
+acd_p2=hline(0.786, color = color.maroon, editable=false)
+fill(acd_p1,acd_p2, color = color.red, editable = false, transp = 90)
+hline(0.5, color = color.gray, editable=false, linestyle=hline.style_solid)
+acd_p5 = hline(0.236, color = color.green, editable=false)
+acd_p6 = hline(0, color = color.gray, editable=false)
+fill(acd_p5,acd_p6, color = color.lime, editable = false, transp = 90) 
+
+plot(acd_accDist, color=color.yellow, editable=false)
+plot(acd_slowd, color=color.aqua, editable=false)
+
+//############################################ trend trade system ########################
+tts_src=close
+tts_ema_length = 26
+tts_vwap_length = 13
+tts_rsi_len = 14
+
+tts_ema = ema(low, tts_ema_length)
+tts_vwap = ema(vwap, tts_vwap_length)
+tts_rsi = rsi(close, 14)
+
+//plot(tts_vwap, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+//plot(tts_ema, color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+
+//setup long
+tts_setupLong = int(na)
+tts_setupLong := if (tts_rsi > 55 and close > tts_ema) 
+    if (nz(tts_setupLong[1]) == 0) or (nz(tts_setupLong[1]) > 1)
+        nz(tts_setupLong[1]) + 1 //---------------------------------------->initiate the long setup
+    else 
+        if (nz(tts_setupLong[1]) == 1 and tts_rsi > 55 and tts_rsi < 75 and close > close[1] and close > open and high > high[1])
+            nz(tts_setupLong[1]) + 1 //-----------------------------> setup long started other words entry
+        else
+            nz(tts_setupLong[1])
+else
+    if (tts_rsi > 50 and close > tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupLong[1]) > 1) //----------------------------------->if setup already started continue it
+            nz(tts_setupLong[1]) + 1
+        else // if setup did not start yet, retest the setup
+            0
+    else
+        0
+
+tts_setupLong_entry = tts_setupLong == 2
+tts_setupLong_exit = ((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1
+
+plotshape(tts_setupLong_entry ? 0.236 : na, style=shape.labelup, location=location.absolute, color=color.green, transp=0, editable=false, text="L", textcolor = color.black) 
+plotshape(tts_setupLong_exit ? 0.786 : na, style=shape.labeldown, location=location.absolute, color=color.red, transp=0, editable=false, text="LE", textcolor = color.white)
+//bgcolor(tts_setupLong == 2 ? color.lime : na, editable=false, transp=75)
+//bgcolor(((tts_rsi < 50 and close < tts_ema) or (tts_rsi < 45 and close < tts_ema)) and tts_setupLong[1] > 1 ? color.yellow : na, editable=false, transp=75)
+
+//long pullback
+tts_setupLongPullBack = int(na)        
+tts_setupLongPullBack := if (nz(tts_setupLong[1]) > 1) //setup long started
+    //long pullback not started and current candle rsi > 50 and rsi < 55
+    if (nz(tts_setupLongPullBack[1]) == 0 and tts_rsi > 50 and tts_rsi < 55 and close > tts_ema) 
+        nz(tts_setupLongPullBack[1]) + 1
+    else
+        //pullback started and rsi > 55 and close > ema and previous close is greater than current close
+        if (nz(tts_setupLongPullBack[1]) > 0 and tts_rsi > 55 and close > tts_ema and close > close[1] and close > open and high > high[1]) 
+            nz(tts_setupLongPullBack[1]) + 1
+        else
+            if (nz(tts_setupLongPullBack[1]) > 1)
+                0
+            else
+                nz(tts_setupLongPullBack[1])
+else
+    0
+
+tts_setupLongPullBack_entry = tts_setupLongPullBack == 2
+//plotshape(tts_setupLongPullBack_entry ? 0.236 : na, style=shape.labelup, location=location.absolute, color=color.green, transp=0, editable=false, text="LPB", textcolor = color.white)
+//bgcolor(tts_setupLongPullBack == 2 ? color.blue : na, editable=false, transp=75)
+
+plotshape((tts_rsi > 75 and close > tts_ema) ? 0.786 : na, style=shape.labelup, location=location.absolute, color=color.maroon, editable=false, text="O", textcolor = color.white)
+
+
+//short setup
+tts_setupShort = int(na)
+tts_setupShort := if (tts_rsi < 45 and close < tts_ema)
+    if (nz(tts_setupShort[1]) == 0) or (nz(tts_setupShort[1]) > 1) //setup not initialized or setup started
+        nz(tts_setupShort[1]) + 1
+    else 
+        if (nz(tts_setupShort[1]) == 1 and tts_rsi < 50 and tts_rsi > 25 and close < close[1] and close < open and low < low[1]) //needs to be red candle with close than previous close and low less than previous low
+            nz(tts_setupShort[1]) + 1 //------------------------------------------->setup initialized starts the setup
+        else
+            nz(tts_setupShort[1])
+else
+    if (tts_rsi < 50 and close < tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema)
+        if (nz(tts_setupShort[1]) > 1) //--------------------------------->if greater than 1 means short setup started
+            nz(tts_setupShort[1]) + 1
+        else
+            0
+    else
+        0
+
+tts_setupShort_entry = tts_setupShort == 2
+tts_setupShort_exit = ((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1
+plotshape(tts_setupShort_entry ? 0.786 : na, style=shape.labeldown, location=location.absolute, color=color.red, transp=0, editable=false, text="S", textcolor = color.white) 
+plotshape(tts_setupShort_exit ? 0.236 : na, style=shape.labelup, location=location.absolute, color=color.green, transp=0, editable=false, text="SE", textcolor = color.white)
+//bgcolor(tts_setupShort == 2 ? color.red : na, editable=false, transp=75)
+//bgcolor(((tts_rsi > 50 and close > tts_ema) or (tts_rsi > 55 and close > tts_ema)) and tts_setupShort[1] > 1 ? color.orange : na, editable=false, transp=75)
+
+//short pullback
+tts_setupShortPullBack = int(na)        
+tts_setupShortPullBack := if (nz(tts_setupShort[1]) > 1) //setup short started
+    //short pullback not started and current candle rsi < 50 and rsi < 55
+    if (nz(tts_setupShortPullBack[1]) == 0 and tts_rsi > 45 and tts_rsi < 50 and close < tts_ema) 
+        nz(tts_setupShortPullBack[1]) + 1
+    else
+        if (nz(tts_setupShortPullBack[1]) > 0 and tts_rsi < 45 and close < tts_ema and close < close[1] and close < open and low < low[1]) 
+            nz(tts_setupShortPullBack[1]) + 1
+        else
+            if (nz(tts_setupShortPullBack[1]) > 1)
+                0
+            else
+                nz(tts_setupShortPullBack[1])
+else
+    0
+
+tts_setupShortPullBack_entry = tts_setupShortPullBack == 2
+//plotshape(tts_setupShortPullBack_entry ? 0.786 : na, style=shape.labeldown, location=location.absolute, color=color.red, transp=0, editable=false, text="SPB", textcolor = color.white)
+plotshape((tts_rsi < 25 and close < tts_ema) ? 0.236 : na, style=shape.labeldown, location=location.absolute, color=color.new(color.orange,40), editable=false, text="O", textcolor = color.white)
+
+//###############Savage Oscillator
+so_sensitivity = 1
+so_volumeAveragingLength = 20
+so_volumePercentThreshold = 60
+
+so_stoch_1 = max(-100, min(100, ema(stoch(close, high, low, 8), 5)) - 50) / 50.01
+so_stoch_2 = max(-100, min(100, ema(stoch(close, high, low, 17), 5)) - 50) /50.01
+so_stoch_3 = max(-100, min(100, rsi(close,2)) - 50) / 50.01
+
+so_bull =(ema((so_stoch_1 + so_stoch_2 + so_stoch_3)/3,so_sensitivity))*10
+plot(so_bull, color=color.green, display=display.none, editable=false)
+
+so_w1 = wma(so_bull, 20)
+so_w2 = wma(so_bull, 10)
+so_speedChange = so_bull < 1.5 ? (so_w1-1.5) : (so_w2-1.5) 
+so_bear = (so_speedChange - so_bull)
+plot(so_bear, color=color.red, display=display.none, editable=false)
+
+so_middle = ((so_bull - so_bear)/2) + so_bear
+plot(so_middle, color=color.white, display=display.none, editable=false)
+
+so_top = so_bull > 8 ? so_bull : na
+plotshape(so_bull > 8 ? 0.236 : na, color=color.yellow, style=shape.labelup, text='⚠',location=location.absolute, textcolor=color.black)
+
+so_bottom = so_bull < -8 ? so_bull : na
+plotshape(so_bull < -8 ? 0.786 : na, color=color.yellow, style=shape.labeldown, text='⚠',location=location.absolute, textcolor=color.black)
+
+so_aVol = sum(volume, so_volumeAveragingLength) / so_volumeAveragingLength
+so_pVol = 100 * ((volume - so_aVol[1]) / so_aVol[1])
+so_pDot = so_pVol >= so_volumePercentThreshold
+plot(so_pDot ? 0 : na, color=color.blue, style=plot.style_circles, editable=false, linewidth=4)
+
+so_bull_bear_label_text = so_bull > so_bear ? "SO : Bullish" : "SO : Bearish"
+so_bull_bear_label_color = so_bull > so_bear ? color.green : color.red
+
+var label so_bull_bear_label = na
+label.delete(so_bull_bear_label)
+so_bull_bear_label := label.new(x=label_xPos, y=0.5, xloc=xloc.bar_time, yloc=yloc.price, text=so_bull_bear_label_text, color=so_bull_bear_label_color, style=label.style_label_center, textcolor=color.white)
+
+
+//##################### TTM Squeeze ######################
+msqz_src = close
+msqz_length = 20
+
+
+//Bollinger Bands Basis Line
+msqz_basis = sma(msqz_src, msqz_length)
+
+//Keltner Channel Basis Line
+msqz_basiskc = sma(msqz_src, msqz_length)
+
+// Keltner Channel Low
+msqz_rangemal = sma(tr, msqz_length)
+
+// Keltner Channel Mid
+msqz_rangemam = sma(tr, msqz_length)
+
+//Keltner Channel High
+msqz_rangemah = sma(tr, msqz_length)
+
+//Bollinger Bands Multiplier
+msqz_mult = 2.0
+
+//Keltner Channel Low Multiplier
+msqz_multlowKC = 2.0
+
+//Keltner Channel Mid Multiplier
+msqz_multmidKC = 1.5
+
+//Keltner Channel High Multiplier
+msqz_multhighKC = 1.0
+
+//Bollinger Bands 
+msqz_dev = msqz_mult * stdev(msqz_src, msqz_length)
+msqz_upperBB = msqz_basis + msqz_dev
+msqz_lowerBB = msqz_basis - msqz_dev
+
+//Keltner Channel Bands Low 
+msqz_upperKCl = msqz_basiskc + msqz_rangemal * msqz_multlowKC
+msqz_lowerKCl = msqz_basiskc - msqz_rangemal * msqz_multlowKC
+
+//Keltner Channel Bands Mid
+msqz_upperKCm = msqz_basiskc + msqz_rangemam * msqz_multmidKC
+msqz_lowerKCm = msqz_basiskc - msqz_rangemam * msqz_multmidKC
+
+//Keltner Channel Bands High
+msqz_upperKCh = msqz_basiskc + msqz_rangemah * msqz_multhighKC
+msqz_lowerKCh = msqz_basiskc - msqz_rangemah * msqz_multhighKC
+
+//------------------------{ Squeeze Basics }------------------------------------
+
+//Squeeze Momentum
+msqz_sz = linreg(msqz_src - avg(avg(highest(high, msqz_length), lowest(low, msqz_length)), ema(close, msqz_length)), msqz_length, 0)
+
+//Squeeze Conditions
+msqz_sc1 = msqz_sz >= 0
+msqz_sc2 = msqz_sz < 0
+msqz_sc3 = msqz_sz >= msqz_sz[1]
+msqz_sc4 = msqz_sz < msqz_sz[1]
+msqz_sc5 = msqz_sz < 1
+msqz_sc6 = msqz_sz > -1
+
+//Squeeze On
+msqz_lowsqz = msqz_lowerBB > msqz_lowerKCl and msqz_upperBB < msqz_upperKCl
+msqz_lsf = msqz_lowsqz == false
+msqz_midsqz = msqz_lowerBB > msqz_lowerKCm and msqz_upperBB < msqz_upperKCm
+msqz_msf = msqz_midsqz == false
+msqz_highsqz = msqz_lowerBB > msqz_lowerKCh and msqz_upperBB < msqz_upperKCh
+msqz_hsf = msqz_highsqz == false
+
+//Squeeze Plot
+msqz_color = msqz_sc1 and msqz_sc3 ? color.green : msqz_sc1 and msqz_sc4 ? color.blue : msqz_sc2 and msqz_sc4 ? color.red : msqz_sc2 and msqz_sc3 ? color.orange : color.gray
+msqz_text = msqz_sc1 and msqz_sc3 or msqz_sc1 and msqz_sc4 ? "SQZ : Bullish" : msqz_sc2 and msqz_sc4 or msqz_sc2 and msqz_sc3 ? "SQZ : Bearish" : "SQZ : Neutral"
+//plot(msqz_sz, title="Squeeze Momentum", color=msqz_choice, style=plot.style_columns, linewidth=1)
+var label msqz_bull_bear_neutral_label = na
+label.delete(msqz_bull_bear_neutral_label)
+msqz_bull_bear_neutral_label := label.new(x=label_xPos, y=0.23, xloc=xloc.bar_time, yloc=yloc.price, text=msqz_text, color=msqz_color, style=label.style_label_center, textcolor=color.white)
+
+
+//Squeeze Dot Plot Zero Line
+//Squeeze Dot Colors
+msqz_sqzproc = msqz_highsqz ? #ffe500 : msqz_midsqz ? #ff0000 : msqz_lowsqz ? color.white : msqz_lowsqz ? #000000 : na
+msqz_sqzproz = msqz_highsqz ? 0.5 : msqz_midsqz ? 0.5 : msqz_lowsqz ? 0.5 : na
+plot(msqz_sqzproz, title="Zero Line Squeeze", color=msqz_sqzproc, linewidth=3,style=plot.style_circles,transp=0, editable=false)
+
+//Start Of Squeeze
+//sol         = barssince(lsf) == 1
+//som         = barssince(msf) == 1
+//soh         = barssince(hsf) == 1
+
+//End Of Squeeze
+//eol         = barssince(lowsqz) == 1
+//eom         = barssince(midsqz) == 1
+//eoh         = barssince(highsqz) == 1

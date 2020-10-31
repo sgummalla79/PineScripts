@@ -1,0 +1,128 @@
+#https://usethinkscript.com/threads/savage-oscillator.4214/
+#Assembled by FateOwnzYou on UseThinkscript.com
+
+
+declare lower;
+Input Price_Color = yes;
+Input Sensitivity = 1;
+Input Reversal_Warning_Candle = yes;
+Input Reversal_Warning = 8;
+Input AverageLine = yes;
+Input HighVolume = yes;
+Input VolumeAveragingLength = 20;
+Input VolumePercentThreshold = 60;
+
+Plot _High = 9;
+Plot CautionHigh = Reversal_Warning;
+Plot _Low = -9;
+Plot CautionLow = (Reversal_Warning)*-1;
+Plot Zero = 0;
+
+##Stochastics
+Def S1 = Max(-100, Min(100, ) - 50) / 50.01;
+Def S2 = Max(-100, Min(100, (StochasticFull(KPeriod = 17, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+Def S3 = Max(-100, Min(100, reference RSI(2)) - 50) / 50.01;
+
+Plot Bull =(expAverage((S1 + S2 + S3)/3,Sensitivity))*10;
+Def SpdChng = if Bull < 1.5 then ((movingAverage(averageType.Weighted, Bull, 20))-1.5) else ((movingAverage(averageType.Weighted, Bull, 10))-1.5) ;
+
+plot Bear = (SpdChng - Bull);
+plot middle = if AverageLine then((bull - bear)/2)+bear else double.nan;
+
+##Reversals
+Plot Top = if Bull > Reversal_Warning then Bull else double.nan;
+Plot Bottom = if Bull < (Reversal_Warning)*-1 then Bull else double.nan;
+
+##High Volume
+def aVol = Average(volume, volumeAveragingLength);
+def pVol = 100 * ((volume - aVol[1]) /aVol[1]);
+def pDot = pVol >= volumePercentThreshold;
+
+#Paint
+zero.assignValueColor(if pDot and HighVolume then color.CYAN else color.current);
+zero.setlineWeight(2);
+
+middle.setdefaultColor(color.white);
+
+Bottom.setdefaultColor(Color.yellow);
+Bottom.setPaintingStrategy(paintingStrategy.POINTS);
+Bottom.setlineWeight(3);
+
+Top.setdefaultColor(Color.yellow);
+Top.setPaintingStrategy(paintingStrategy.POINTS);
+Top.setlineWeight(3);
+
+_High.setdefaultColor(color.gray);
+_Low.setdefaultColor(color.gray);
+Zero.setdefaultColor(color.gray);
+
+Cautionhigh.setdefaultColor(color.gray);
+Cautionlow.setdefaultColor(color.gray);
+
+Bear.assignValueColor(color.red);
+Bull.assignvalueColor(color.green);
+
+Bear.assignValueColor(color.red);
+Bull.assignvalueColor(color.green);
+
+addLabel(yes, if Bull > Bear then "Bullish" else "Bearish", if Bull > Bear then Color.Green else color.red);
+//assignpriceColor(if Price_Color AND Bull > Bear then color.green else color.current);
+//assignpriceColor(if Price_Color AND Bull < Bear then color.red else color.current);
+//assignpriceColor(if Reversal_Warning_Candle AND Bull > Reversal_Warning then color.blue else color.current);
+//assignpriceColor(if Reversal_Warning_Candle AND Bull < (Reversal_Warning)*-1 then color.blue else color.current);
+
+addcloud(cautionhigh,_high,color.yellow, color.yellow);
+addcloud(cautionlow,_low,color.yellow, color.yellow);
+
+//////////////////////////////////////////
+#https://usethinkscript.com/threads/savage-oscillator.4214/
+#Assembled by FateOwnzYou on UseThinkscript.com
+
+input Sensitivity = 1;
+Input Reversal_Warning = 8;
+input Label = yes;
+Input HighVolume = yes;
+input volumeAveragingLength = 20;
+input volumePercentThreshold = 50;
+
+def s1 = Max(-100, Min(100, (StochasticFull(KPeriod = 8, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+def s2 = Max(-100, Min(100, (StochasticFull(KPeriod = 17, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+def s3 = Max(-100, Min(100, reference RSI(2)) - 50) / 50.01;
+
+def Bull =expAverage((s1 + s2 + s3)/3,sensitivity)*10;
+def avg = if bull < 1.5 then ((movingAverage(averageType.Weighted, bull, 20))-1.5) else ((movingAverage(averageType.Weighted, bull, 10)))-1.5 ;
+def Bear = (avg - bull);
+
+def aVol = Average(volume, volumeAveragingLength);
+def pVol = 100 * ((volume - aVol[1]) /aVol[1]);
+def pDot = pVol >= volumePercentThreshold;
+plot volumeStrength = if pDot and (Bull or Bear) and HighVolume then hl2 else Double.NaN;
+
+addLabel(Label, if Bull > Bear then "Bullish" else "Bearish", if Bull > Bear then Color.Green else color.red);
+volumeStrength.SetPaintingStrategy(PaintingStrategy.POINTS);
+volumeStrength.SetLineWeight(3);
+volumeStrength.SetDefaultColor(color.cyan);
+volumeStrength.hideBubble();
+assignpriceColor(if Bull > Bear then color.GREEN else color.current);
+assignpriceColor(if Bull < Bear then color.RED else color.current);
+assignpricecolor(if Bull > Reversal_Warning then color.BLUE else color.current);
+assignpricecolor(if Bull < (Reversal_Warning *-1) then color.BLUE else color.current);
+
+////////////////////////////////////////Input Sensitivity = 1;
+Input Reversal_Warning = 8;
+
+
+##Stochastics
+Def S1 = Max(-100, Min(100, (StochasticFull(KPeriod = 8, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+Def S2 = Max(-100, Min(100, (StochasticFull(KPeriod = 17, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+Def S3 = Max(-100, Min(100, reference RSI(2)) - 50) / 50.01;
+
+def Bull =(expAverage((S1 + S2 + S3)/3,Sensitivity))*10;
+Def SpdChng = if Bull < 1.5 then ((movingAverage(averageType.Weighted, Bull, 20))-1.5) else ((movingAverage(averageType.Weighted, Bull, 10))-1.5) ;
+def Bear = (SpdChng - Bull);
+
+def condition = Bull > Reversal_Warning or Bull < (Reversal_Warning * -1);
+
+addLabel(yes, if condition then "Reversal" else concat("",Bull), if condition then color.black else if bull > 0 then color.Light_Green else if bull < 0 then color.Light_Red else color.current);
+
+assignbackgroundcolor(if condition then color.cyan else color.current);
