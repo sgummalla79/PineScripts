@@ -1,0 +1,75 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © fhenry0331
+//how to use: 
+//Let price establish itself on land (green area) then bounce off divider for long position
+//Let price establish itself in sea (underwater blue area) then rejects off divider for short position
+//use on your favorite timeframe
+//if you are long bias, can uncheck sea (grean area) and just focus on land (and vice-versa)
+//take profits at extremes: Blue candles for longs. Black candles for shorts.
+
+
+//@version=4
+study(shorttitle="L&S", title="Land & Sea", overlay=true)
+
+//ema belt or divider of Land & sea or mybasis
+ema1 = ema(close, 26)
+ema2 = ema(close, 30)
+ema3 = ema(close, 36)
+plot(ema1, color=color.black)
+plot(ema3, color=color.black)
+
+//BB
+length = input(12, minval=1)
+src = input(close, title="Source")
+mult = input(2.0, minval=0.001, maxval=50)
+basis = sma(src, length)
+dev = mult * stdev(src, length)
+upper = basis + dev
+lower = basis - dev
+
+//land and sea: user choose background fill for land and sea--green for land, blue for sea or whatever
+p1 = plot(upper, color=color.white)
+p2 = plot(ema2, color=color.black)
+fill(p1, p2)
+
+p3 = plot(lower, color=color.white)
+p4 = plot(ema2, color=color.black)//there will be and extra ema2 line, oh well. color black to hide
+fill(p3, p4)
+
+//MACD
+// Getting inputs
+fast_length = input(title="Fast Length", type=input.integer, defval=12)
+slow_length = input(title="Slow Length", type=input.integer, defval=26)
+src1 = input(title="Source", type=input.source, defval=close)
+signal_length = input(title="Signal Smoothing", type=input.integer, minval = 1, maxval = 50, defval = 9)
+sma_source = input(title="Simple MA(Oscillator)", type=input.bool, defval=false)
+sma_signal = input(title="Simple MA(Signal Line)", type=input.bool, defval=false)
+
+// Calculating
+fast_ma = sma_source ? sma(src1, fast_length) : ema(src1, fast_length)
+slow_ma = sma_source ? sma(src1, slow_length) : ema(src1, slow_length)
+macd = fast_ma - slow_ma
+signal = sma_signal ? sma(macd, signal_length) : ema(macd, signal_length)
+hist = macd - signal
+
+//RSI
+src2 = close,
+len = input(7, minval=1, title="Length")
+up = rma(max(change(src2), 0), len)
+down = rma(-min(change(src2), 0), len)
+rsi = down == 0 ? 100 : up == 0 ? 0 : 100 - (100 / (1 + up / down))
+
+//conditions for exhaustion in price movement
+cond1 = high > upper and macd > signal and macd >= -0.10 and rsi > 70 ? 1 : 0
+barcolor(cond1 ? color.blue :  na)//extreme high
+
+cond2 = low < lower and macd < signal and macd <= 0.10 and rsi < 30 ? 1 : 0
+barcolor(cond2 ? color.black : na)//extreme low
+
+cond3 = high > upper and rsi > 70 ? 1 : 0
+barcolor(cond3 ? color.yellow: na)//moderately high
+
+cond4 = low < lower and rsi < 30 ? 1 : 0
+barcolor(cond4 ? color.white: na)//moderately low
+
+//enjoy 2020

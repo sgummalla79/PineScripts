@@ -1,0 +1,483 @@
+############################################################################################
+# FVO_TTM_Squeeze_MTF_Sig                                                                  #
+#HINT                                                                                      #
+#    Script will plot the Squeeze signal, whether it has fired or not (whether the stock   #
+#    is in a sqeeze or not) for multiple timeframes.                                       #
+#    TimeFrames Included = 1m, 5m, 15m, 30m, 1h, 2h, 4h, D, 2D, 3D, WK, Mnth               #
+#    Plots are as follows:                                                                 #
+#        1m TF = plots 6x TF's - 1m, 5m, 15m, 30m, 1h, 2h                                  #
+#            - (from top to bottom - line 12 through 7)                                    #
+#            - this is so that it can be loaded easily on a                                #
+#                1m chart and avoid having to load on multiple charts                      #
+#        ALL Other TF's = plots 4x TF's starting with the current chart setting:           #
+#            - For Example - Chart set to 30m - plot from top to bottom will be            #
+#            - 30m, 1h, 2h, 4h                                                             #
+#                                                                                          #
+#CHANGELOG                                                                                 #
+# 2020.10.01 V1.0    @cos251 - initial script for TTM Squeeze MTF Signal                   #
+#                                                                                          #
+#REQUIREMENTS -                                                                            #
+#                                                                                          #
+#                                                                                          #
+#CREDITS                                                                                   #
+# @cos251 initial script with ideas from www.usethinkscript.com                            #
+#                                                                                          #
+#LINK                                                                                      #
+#                                                                                          #
+#USAGE                                                                                     #
+# I like loading this on a 1m chart for the underlying or even a few underlying's          #
+# so that I can when squeeze signals fire.  It is very helpful to see this across mtf's.   #
+#                                                                                          #
+#                                                                                          #
+############################################################################################
+
+
+
+declare lower;
+##Global Variables
+def length = 20;
+def AlertLine = 1;
+def nk = 1.5;
+def nBB = 2;
+def averageTpype = AverageType.SIMPLE;
+def displace = 0;
+def trueRangeAverageType = AverageType.SIMPLE;
+
+## Signal Plots
+def minSignal = 12;
+def five_minSignal = 11;
+def fifteen_minSignal =10;
+def thirty_minSignal = 9;
+def hour_Signal = 8;
+def two_hour_Signal = 7;
+def four_hour_Signal = 6;
+def day_Signal = 5;
+def two_day_Signal = 4;
+def three_day_Signal = 3;
+def week_Signal = 2;
+def monthSignal = 1;
+
+
+def minAggregationPeriod;
+def five_minAggregationPeriod;
+def fifteen_minAggregationPeriod;
+def thirty_minAggregationPeriod;
+def hourAggregationPeriod;
+def two_hourAggregationPeriod;
+def four_hourAggregationPeriod;
+def dayAggregationPeriod;
+def two_dayAggregationPeriod;
+def three_dayAggregationPeriod;
+def weekAggregationPeriod;
+def monthAggregationPeriod;
+
+if GetAggregationPeriod() == AggregationPeriod.MIN {
+    minAggregationPeriod = 1;
+} else {
+    minAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.FIVE_MIN {
+    five_minAggregationPeriod = 1;
+} else {
+    five_minAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.FIFTEEN_MIN {
+    fifteen_minAggregationPeriod = 1;
+} else {
+    fifteen_minAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.THIRTY_MIN {
+    thirty_minAggregationPeriod = 1;
+} else {
+    thirty_minAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.HOUR {
+    hourAggregationPeriod = 1;
+} else {
+    hourAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.TWO_HOURS {
+    two_hourAggregationPeriod = 1;
+} else {
+    two_hourAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.FOUR_HOURS {
+    four_hourAggregationPeriod = 1;
+} else {
+    four_hourAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.DAY {
+    dayAggregationPeriod = 1;
+} else {
+    dayAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.TWO_DAYS {
+    two_dayAggregationPeriod = 1;
+} else {
+    two_dayAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.THREE_DAYS {
+    three_dayAggregationPeriod = 1;
+} else {
+    three_dayAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.WEEK {
+    weekAggregationPeriod = 1;
+} else {
+    weekAggregationPeriod = 0;
+}
+if GetAggregationPeriod() == AggregationPeriod.MONTH {
+    monthAggregationPeriod = 1;
+} else {
+    monthAggregationPeriod = 0;
+}
+
+
+
+## 1 Minute Aggregation for TTM Squeeze
+def minPrice;
+def minATR;
+def minSDev;
+def minDenom;
+def minBBSInd;
+def minSqueeze;
+
+if GetAggregationPeriod() <= AggregationPeriod.MIN {
+    minPrice = close(period=AggregationPeriod.MIN);
+    minATR = Average(TrueRange(high (period=AggregationPeriod.MIN), close(period=AggregationPeriod.MIN), low(period=AggregationPeriod.MIN)), Length);
+    minSDev = stdev(minPrice, Length);
+    minDenom = (nK*minATR);
+    minBBSInd = if (minDenom <> 0, ((nBB * minSDev) /minDenom), 0);
+    minSqueeze = if minBBSInd < AlertLine then 1 else 0;
+}
+else {
+    minPrice = 0;
+    minATR = 0;
+    minSDev = 0;
+    minDenom = 0;
+    minBBSInd = 0;
+    minSqueeze = 0;
+}
+plot minPlot = if !IsNaN(minPrice) and minAggregationPeriod == 1 then minSignal else Double.NaN;
+minPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+minPlot.SetLineWeight(3);
+minPlot.AssignValueColor(if minSqueeze == 1 then Color.RED else Color.GREEN);
+
+## 5 Minute Aggregation for TTM Squeeze
+def five_minPrice;
+def five_minATR;
+def five_minSDev;
+def five_minDenom;
+def five_minBBSInd;
+def five_minSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.FIVE_MIN {
+    five_minPrice = close(period=AggregationPeriod.FIVE_MIN);
+    five_minATR = Average(TrueRange(high (period=AggregationPeriod.FIVE_MIN), close(period=AggregationPeriod.FIVE_MIN), low(period=AggregationPeriod.FIVE_MIN)), Length);
+    five_minSDev = stdev(five_minPrice, Length);
+    five_minDenom = (nK*five_minATR);
+    five_minBBSInd = if (five_minDenom <> 0, ((nBB * five_minSDev) /five_minDenom), 0);
+    five_minSqueeze = if five_minBBSInd < AlertLine then 1 else 0;
+}
+else {
+    five_minPrice = 0;
+    five_minATR = 0;
+    five_minSDev = 0;
+    five_minDenom = 0;
+    five_minBBSInd = 0;
+    five_minSqueeze = 0;
+}
+plot five_minPlot = if !IsNaN(five_minPrice) and (five_minAggregationPeriod == 1 or minAggregationPeriod ==1) then five_minSignal else Double.NaN;
+five_minPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+five_minPlot.SetLineWeight(3);
+five_minPlot.AssignValueColor(if five_minSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 15 Minute Aggregation for TTM Squeeze
+def fifteen_minPrice;
+def fifteen_minATR;
+def fifteen_minSDev;
+def fifteen_minDenom;
+def fifteen_minBBSInd;
+def fifteen_minSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.FIFTEEN_MIN {
+    fifteen_minPrice = close(period=AggregationPeriod.fifteen_min);
+    fifteen_minATR = Average(TrueRange(high (period=AggregationPeriod.fifteen_min), close(period=AggregationPeriod.fifteen_min), low(period=AggregationPeriod.fifteen_min)), Length);
+    fifteen_minSDev = stdev(fifteen_minPrice, Length);
+    fifteen_minDenom = (nK*fifteen_minATR);
+    fifteen_minBBSInd = if (fifteen_minDenom <> 0, ((nBB * fifteen_minSDev) /fifteen_minDenom), 0);
+    fifteen_minSqueeze = if fifteen_minBBSInd < AlertLine then 1 else 0;
+}
+else {
+    fifteen_minPrice = 0;
+    fifteen_minATR = 0;
+    fifteen_minSDev = 0;
+    fifteen_minDenom = 0;
+    fifteen_minBBSInd = 0;
+    fifteen_minSqueeze = 0;
+}
+plot fifteen_minPlot = if !IsNaN(fifteen_minPrice) and (fifteen_minAggregationPeriod == 1 or five_minAggregationPeriod == 1 or minAggregationPeriod == 1) then fifteen_minSignal else Double.NaN;
+fifteen_minPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+fifteen_minPlot.SetLineWeight(3);
+fifteen_minPlot.AssignValueColor(if fifteen_minSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 30 Minute Aggregation for TTM Squeeze
+def thirty_minPrice;
+def thirty_minATR;
+def thirty_minSDev;
+def thirty_minDenom;
+def thirty_minBBSInd;
+def thirty_minSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.thirty_min {
+    thirty_minPrice = close(period=AggregationPeriod.thirty_min);
+    thirty_minATR = Average(TrueRange(high (period=AggregationPeriod.thirty_min), close(period=AggregationPeriod.thirty_min), low(period=AggregationPeriod.thirty_min)), Length);
+    thirty_minSDev = stdev(thirty_minPrice, Length);
+    thirty_minDenom = (nK*thirty_minATR);
+    thirty_minBBSInd = if (thirty_minDenom <> 0, ((nBB * thirty_minSDev) /thirty_minDenom), 0);
+    thirty_minSqueeze = if thirty_minBBSInd < AlertLine then 1 else 0;
+}
+else {
+    thirty_minPrice = 0;
+    thirty_minATR = 0;
+    thirty_minSDev = 0;
+    thirty_minDenom = 0;
+    thirty_minBBSInd = 0;
+    thirty_minSqueeze = 0;
+}
+plot thirty_minPlot = if !IsNaN(thirty_minPrice) and (thirty_minAggregationPeriod == 1 or fifteen_minAggregationPeriod == 1 or five_minAggregationPeriod == 1 or minAggregationPeriod == 1) then thirty_minSignal else Double.NaN;
+thirty_minPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+thirty_minPlot.SetLineWeight(3);
+thirty_minPlot.AssignValueColor(if thirty_minSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 1 HOUR Aggregation for TTM Squeeze
+def hourPrice;
+def hourATR;
+def hourSDev;
+def hourDenom;
+def hourBBSInd;
+def hourSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.hour {
+    hourPrice = close(period=AggregationPeriod.hour);
+    hourATR = Average(TrueRange(high (period=AggregationPeriod.hour), close(period=AggregationPeriod.hour), low(period=AggregationPeriod.hour)), Length);
+    hourSDev = stdev(hourPrice, Length);
+    hourDenom = (nK*hourATR);
+    hourBBSInd = if (hourDenom <> 0, ((nBB * hourSDev) /hourDenom), 0);
+    hourSqueeze = if hourBBSInd < AlertLine then 1 else 0;
+}
+else {
+    hourPrice = 0;
+    hourATR = 0;
+    hourSDev = 0;
+    hourDenom = 0;
+    hourBBSInd = 0;
+    hourSqueeze = 0;
+}
+plot hourPlot = if !IsNaN(hourPrice) and (hourAggregationPeriod == 1 or thirty_minAggregationPeriod == 1 or fifteen_minAggregationPeriod == 1 or five_minAggregationPeriod == 1 or minAggregationPeriod == 1) then hour_Signal else Double.NaN;
+hourPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+hourPlot.SetLineWeight(3);
+hourPlot.AssignValueColor(if hourSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 2 HOUR Aggregation for TTM Squeeze
+def two_hourPrice;
+def two_hourATR;
+def two_hourSDev;
+def two_hourDenom;
+def two_hourBBSInd;
+def two_hourSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.two_hours {
+    two_hourPrice = close(period=AggregationPeriod.two_hours);
+    two_hourATR = Average(TrueRange(high (period=AggregationPeriod.two_hours), close(period=AggregationPeriod.two_hours), low(period=AggregationPeriod.two_hours)), Length);
+    two_hourSDev = stdev(two_hourPrice, Length);
+    two_hourDenom = (nK*two_hourATR);
+    two_hourBBSInd = if (two_hourDenom <> 0, ((nBB * two_hourSDev) /two_hourDenom), 0);
+    two_hourSqueeze = if two_hourBBSInd < AlertLine then 1 else 0;
+}
+else {
+    two_hourPrice = 0;
+    two_hourATR = 0;
+    two_hourSDev = 0;
+    two_hourDenom = 0;
+    two_hourBBSInd = 0;
+    two_hourSqueeze = 0;
+}
+plot two_hourPlot = if !IsNaN(two_hourPrice) and (two_hourAggregationPeriod == 1 or hourAggregationPeriod == 1 or thirty_minAggregationPeriod == 1 or fifteen_minAggregationPeriod == 1 or five_minAggregationPeriod == 1 or minAggregationPeriod == 1) then two_hour_Signal else Double.NaN;
+two_hourPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+two_hourPlot.SetLineWeight(3);
+two_hourPlot.AssignValueColor(if two_hourSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 4 HOUR Aggregation for TTM Squeeze
+def four_hourPrice;
+def four_hourATR;
+def four_hourSDev;
+def four_hourDenom;
+def four_hourBBSInd;
+def four_hourSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.FOUR_HOURS {
+    four_hourPrice = close(period=AggregationPeriod.FOUR_HOURS);
+    four_hourATR = Average(TrueRange(high (period=AggregationPeriod.FOUR_HOURS), close(period=AggregationPeriod.FOUR_HOURS), low(period=AggregationPeriod.FOUR_HOURS)), Length);
+    four_hourSDev = stdev(four_hourPrice, Length);
+    four_hourDenom = (nK*four_hourATR);
+    four_hourBBSInd = if (four_hourDenom <> 0, ((nBB * four_hourSDev) /four_hourDenom), 0);
+    four_hourSqueeze = if four_hourBBSInd < AlertLine then 1 else 0;
+}
+else {
+    four_hourPrice = 0;
+    four_hourATR = 0;
+    four_hourSDev = 0;
+    four_hourDenom = 0;
+    four_hourBBSInd = 0;
+    four_hourSqueeze = 0;
+}
+plot four_hourPlot = if !IsNaN(four_hourPrice) and (four_hourAggregationPeriod == 1 or two_hourAggregationPeriod == 1 or hourAggregationPeriod == 1 or thirty_minAggregationPeriod == 1) then four_hour_Signal else Double.NaN;
+four_hourPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+four_hourPlot.SetLineWeight(3);
+four_hourPlot.AssignValueColor(if four_hourSqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 1 DAY Aggregation for TTM Squeeze
+def dayPrice;
+def dayATR;
+def daySDev;
+def dayDenom;
+def dayBBSInd;
+def daySqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.day {
+    dayPrice = close(period=AggregationPeriod.day);
+    dayATR = Average(TrueRange(high (period=AggregationPeriod.day), close(period=AggregationPeriod.day), low(period=AggregationPeriod.day)), Length);
+    daySDev = stdev(dayPrice, Length);
+    dayDenom = (nK*dayATR);
+    dayBBSInd = if (dayDenom <> 0, ((nBB * daySDev) /dayDenom), 0);
+    daySqueeze = if dayBBSInd < AlertLine then 1 else 0;
+}
+else {
+    dayPrice = 0;
+    dayATR = 0;
+    daySDev = 0;
+    dayDenom = 0;
+    dayBBSInd = 0;
+    daySqueeze = 0;
+}
+plot dayPlot = if !IsNaN(dayPrice) and (dayAggregationPeriod == 1 or four_hourAggregationPeriod == 1 or two_hourAggregationPeriod == 1 or hourAggregationPeriod == 1) then day_Signal else Double.NaN;
+dayPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+dayPlot.SetLineWeight(3);
+dayPlot.AssignValueColor(if daySqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 2 DAY Aggregation for TTM Squeeze
+def two_dayPrice;
+def two_dayATR;
+def two_daySDev;
+def two_dayDenom;
+def two_dayBBSInd;
+def two_daySqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.two_days {
+    two_dayPrice = close(period=AggregationPeriod.two_days);
+    two_dayATR = Average(TrueRange(high (period=AggregationPeriod.two_days), close(period=AggregationPeriod.two_days), low(period=AggregationPeriod.two_days)), Length);
+    two_daySDev = stdev(two_dayPrice, Length);
+    two_dayDenom = (nK*two_dayATR);
+    two_dayBBSInd = if (two_dayDenom <> 0, ((nBB * two_daySDev) /two_dayDenom), 0);
+    two_daySqueeze = if two_dayBBSInd < AlertLine then 1 else 0;
+}
+else {
+    two_dayPrice = 0;
+    two_dayATR = 0;
+    two_daySDev = 0;
+    two_dayDenom = 0;
+    two_dayBBSInd = 0;
+    two_daySqueeze = 0;
+}
+plot two_dayPlot = if !IsNaN(two_dayPrice) and (two_dayAggregationPeriod == 1 or dayAggregationPeriod == 1 or four_hourAggregationPeriod == 1 or two_hourAggregationPeriod == 1) then two_day_Signal else Double.NaN;
+two_dayPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+two_dayPlot.SetLineWeight(3);
+two_dayPlot.AssignValueColor(if two_daySqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 3 DAY Aggregation for TTM Squeeze
+def three_dayPrice;
+def three_dayATR;
+def three_daySDev;
+def three_dayDenom;
+def three_dayBBSInd;
+def three_daySqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.three_days {
+    three_dayPrice = close(period=AggregationPeriod.three_days);
+    three_dayATR = Average(TrueRange(high (period=AggregationPeriod.three_days), close(period=AggregationPeriod.three_days), low(period=AggregationPeriod.three_days)), Length);
+    three_daySDev = stdev(three_dayPrice, Length);
+    three_dayDenom = (nK*three_dayATR);
+    three_dayBBSInd = if (three_dayDenom <> 0, ((nBB * three_daySDev) /three_dayDenom), 0);
+    three_daySqueeze = if three_dayBBSInd < AlertLine then 1 else 0;
+}
+else {
+    three_dayPrice = 0;
+    three_dayATR = 0;
+    three_daySDev = 0;
+    three_dayDenom = 0;
+    three_dayBBSInd = 0;
+    three_daySqueeze = 0;
+}
+plot three_dayPlot = if !IsNaN(three_dayPrice) and (three_dayAggregationPeriod == 1 or two_dayAggregationPeriod == 1 or dayAggregationPeriod == 1 or four_hourAggregationPeriod == 1) then three_day_Signal else Double.NaN;
+three_dayPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+three_dayPlot.SetLineWeight(3);
+three_dayPlot.AssignValueColor(if three_daySqueeze == 1 then Color.RED else Color.GREEN);
+
+
+## 1 WK Aggregation for TTM Squeeze
+def weekPrice;
+def weekATR;
+def weekSDev;
+def weekDenom;
+def weekBBSInd;
+def weekSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.week {
+    weekPrice = close(period=AggregationPeriod.week);
+    weekATR = Average(TrueRange(high (period=AggregationPeriod.week), close(period=AggregationPeriod.week), low(period=AggregationPeriod.week)), Length);
+    weekSDev = stdev(weekPrice, Length);
+    weekDenom = (nK*weekATR);
+    weekBBSInd = if (weekDenom <> 0, ((nBB * weekSDev) /weekDenom), 0);
+    weekSqueeze = if weekBBSInd < AlertLine then 1 else 0;
+}
+else {
+    weekPrice = 0;
+    weekATR = 0;
+    weekSDev = 0;
+    weekDenom = 0;
+    weekBBSInd = 0;
+    weekSqueeze = 0;
+}
+plot weekPlot = if !IsNaN(weekPrice) and (weekAggregationPeriod == 1 or three_dayAggregationPeriod == 1 or two_dayAggregationPeriod == 1 or dayAggregationPeriod == 1) then week_Signal else Double.NaN;
+weekPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+weekPlot.SetLineWeight(3);
+weekPlot.AssignValueColor(if weekSqueeze == 1 then Color.RED else Color.GREEN);
+
+## Month Aggregation Period Variables
+def monthPrice;
+def monthATR;
+def monthSDev;
+def monthDenom;
+def monthBBSInd;
+def monthSqueeze;
+if GetAggregationPeriod() <= AggregationPeriod.Month {
+    monthPrice = close(period="Month");
+    monthATR = Average(TrueRange(high (period=AggregationPeriod.MONTH), close(period=AggregationPeriod.MONTH), low(period=AggregationPeriod.MONTH)), Length);
+    monthSDev = stdev(monthPrice, Length);
+    monthDenom = (nK*monthATR);
+    monthBBSInd = if (monthDenom <> 0, ((nBB * monthSDev) /monthDenom), 0);
+    monthSqueeze = if monthBBSInd < AlertLine then 1 else 0;
+}
+else {
+    monthPrice = 0;
+    monthATR = 0;
+    monthSDev = 0;
+    monthDenom = 0;
+    monthBBSInd = 0;
+    monthSqueeze = 0;
+}
+plot monthPlot = if !IsNaN(monthPrice) and (monthAggregationPeriod == 1 or weekAggregationPeriod == 1 or three_dayAggregationPeriod == 1 or two_dayAggregationPeriod == 1) then monthSignal else Double.NaN;
+monthPlot.SetPaintingStrategy(PaintingStrategy.POINTS);
+monthPlot.SetLineWeight(3);
+monthPlot.AssignValueColor(if monthSqueeze == 1 then Color.RED else Color.GREEN);
+
+## END TTM SQUEEZE MTF SIGNAL SCRIPT

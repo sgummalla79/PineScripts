@@ -1,0 +1,241 @@
+//@version=4
+study(title = "My True Momentum Indicator", shorttitle="MTMO")
+
+barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+label_xPos   = timenow + barSize*10
+
+tmo_length = input(14, title="Length")
+tmo_calcLength = input(5, title="Calc length")
+tmo_smoothLength = input(3, title="Smooth length")
+tmo_lengthType = input("EMA", title="Length moving average type", options=["SMA", "EMA", 'WMA', 'VWMA', "RMA"])
+tmo_calcLengthType = input("EMA", title="Calc length moving average type", options=["SMA", "EMA", 'WMA', 'VWMA', "RMA"])
+tmo_smoothLengthType = input("EMA", title="Smooth length moving average type", options=["SMA", "EMA", 'WMA', 'VWMA', "RMA"])
+
+//function for choosing moving averages
+f_ma(type, src, len) =>
+    float result = 0
+    if type == "EMA"
+        result := ema(src, len)
+    if type == "SMA"
+        result := sma(src, len)
+    if type == "RMA"
+        result := rma(src, len)
+    result
+    
+data(_open, _close) => 
+    tmo_s = 0
+    for i = 0 to tmo_length
+        tmo_s := tmo_s + (_close > _open[i] ? 1 : _close < _open[i] ? - 1 : 0)
+    tmo_s
+    
+///
+tmo_ob = hline(round(tmo_length * .8), title="overbought cutoff line", color=color.gray, linestyle=hline.style_solid)
+tmo_os = hline(-round(tmo_length * .8), title="oversold cutoff line", color=color.gray, linestyle=hline.style_solid)
+tmo_upper = hline(tmo_length, title="upper line", color=color.red, linestyle=hline.style_solid)
+tmo_lower = hline(-tmo_length, title="lower line", color=color.green, linestyle=hline.style_solid)
+tmo_zero = hline(0, title="zero line", color=color.gray, linestyle=hline.style_solid)
+
+fill(tmo_ob, tmo_upper, title="overbought zone", color=color.red)
+fill(tmo_os, tmo_lower, title="oversold zone", color=color.green)
+
+///
+tmo_ma = f_ma(tmo_lengthType, data(open, close), tmo_calcLength)
+tmo_main = f_ma(tmo_calcLengthType, tmo_ma, tmo_smoothLength)
+tmo_signal = f_ma(tmo_smoothLengthType, tmo_main, tmo_smoothLength)
+
+tmo_mainPlot = plot(tmo_main, title="main line", color = tmo_main > tmo_signal ? color.green : color.red, linewidth=2)
+tmo_signalPlot = plot(tmo_signal, title="signal line", color=tmo_main > tmo_signal ? color.green : color.red)
+tmo_crossPlot = plot(cross(tmo_main, tmo_signal) ? tmo_main : na, title="crossover dot", color=tmo_main > tmo_signal ? color.green : color.red, style=plot.style_circles, linewidth=3)
+fill(tmo_mainPlot, tmo_signalPlot, title="main and signal area", color=tmo_main > tmo_signal ? color.green : color.red)
+
+//############### tmo higher time frame plot #########################
+tmo_htf = timeframe.period=="5" ? "D" : timeframe.period == "15" ? "D" : timeframe.period=="30" ? "D" : timeframe.period=="60" ? "D" : timeframe.period=="240" ? "D" : timeframe.period== "D" ? "W" : timeframe.period=="W" ? "M" : na
+tmo_ma_htf = security(syminfo.tickerid, tmo_htf, tmo_ma,barmerge.gaps_off, barmerge.lookahead_on)
+tmo_main_htf = security(syminfo.tickerid, tmo_htf, tmo_main,barmerge.gaps_off, barmerge.lookahead_on)
+tmo_signal_htf = security(syminfo.tickerid, tmo_htf, tmo_signal,barmerge.gaps_off, barmerge.lookahead_on)
+
+tmo_mainPlot_htf = plot(timeframe.period=="M" ? na : tmo_ma_htf, title="main line htf", color = tmo_main_htf > tmo_signal_htf ? color.blue : color.yellow, linewidth=2)
+tmo_signalPlot_htf = plot(timeframe.period=="M" ? na : tmo_signal_htf, title="signal line htf", color=tmo_main_htf > tmo_signal_htf ? color.blue : color.yellow)
+tmo_crossPlot_htf = plot(timeframe.period=="M" ? na : cross(tmo_main_htf, tmo_signal_htf) ? tmo_main_htf : na, title="crossover dot", color=tmo_main_htf > tmo_signal_htf ? color.blue : color.yellow, style=plot.style_circles, linewidth=3)
+fill(tmo_mainPlot_htf, tmo_signalPlot_htf, title="main and signal area", color=tmo_main_htf > tmo_signal_htf ? color.blue : color.yellow)
+
+//################ RAF ###################
+
+//################ fish current Time Frame ###################
+fish_price = hl2
+fish_length = 10
+
+fish_maxHigh = highest(fish_price, fish_length)
+fish_minLow = lowest(fish_price, fish_length)
+fish_range = fish_maxHigh - fish_minLow
+fish_sto = fish_range != 0 ? (fish_price - fish_minLow) / fish_range : 0
+
+fish_value =float(na)
+fish_value := (0.66 * (fish_sto - 0.5)) + (0.67 * nz(fish_value[1]))
+fish_trunc_value = fish_value > 0.99 ? 0.999 : fish_value < -0.99 ? -0.999 : fish_value
+fish = 0.0
+fish := (0.5 * log((1 + fish_trunc_value) / (1 - fish_trunc_value))) + (0.5 * nz(fish[1]))
+fish_sig = fish > nz(fish[1]) ? 1 : fish < nz(fish[1]) ? -1 : 0
+
+fish_OneBarBack = fish[1]
+fish_UpArrow = (fish[1] < fish_OneBarBack[1]) and (fish > fish_OneBarBack) ? 1 : 0
+fish_DownArrow = (fish[1] > fish_OneBarBack[1]) and (fish < fish_OneBarBack) ? 1 : 0
+
+//# Find if curent fish is greater then fish previous at least 2 bars back
+fish_up = lowest(fish[1],2) < fish_OneBarBack and fish > fish_OneBarBack ? 1 : 0
+
+//# Find if current fish is less than previous fish at least 2 bars back
+fish_down = highest(fish[1],2) > fish_OneBarBack and fish < fish_OneBarBack ? 1 : 0
+
+////////////// ########## CCI current time frame #############/////////////
+cci_length = 14
+cci_over_sold = -100
+cci_over_bought = 100
+
+cci = cci(close + low + high, cci_length)
+
+//# Find if CCI current is crossed above AND is greater than 100 within previou 2 bars
+cci_upsignal = lowest(cci[1],2) < 100 and cci > 100 ? 1 : 0
+
+//# Find if CCI current is crossed below  AND is less than -100 within previou 2 bars
+cci_downsignal = highest(cci[1],2) > -100 and cci < -100 ? 1 : 0
+
+//////////////////////////// ##### current time frame plots ###################//////////////////////////////
+//# Plot arrow if CCI crossed above +100 and is currently greater than +100 and FT has crossed above FTOneBarBack
+cci_fish_up_1 = cci_upsignal and fish_up ? 1 : 0
+plotshape(cci_fish_up_1 == 1 ? -round(tmo_length * .8) : na, style=shape.labeldown, editable=false, location=location.absolute, color= color.lime, text='B', textcolor=color.black)
+
+//# Plot arrow if CCI crossed below -100 and is currently less than -100 and FT has crossed below FTOneBarBack
+cci_fish_down_1 = cci_downsignal and fish_down ? 1 : 0
+plotshape(cci_fish_down_1 == 1 ? round(tmo_length * .8) : na, style=shape.labelup, editable=false, location=location.absolute, color= color.red, text='S', textcolor=color.white)
+
+//# Signal - Plot if FT has crossed above FTOneBarBack and CCI is greater than previous CCI
+cci_fish_up_2 = (fish_OneBarBack[1] > fish[1] and fish_OneBarBack < fish and cci > cci[1]) ? 1 : 0
+plotshape(cci_fish_up_2 == 1 ? -round(tmo_length * .8) : na, style=shape.labeldown, editable=false, location=location.absolute, color= color.blue, text="B", textcolor=color.black, display=display.none)
+
+//# Signal - Plot if FT has crossed below FTOneBarBack and CCI is less than previous CCI
+cci_fish_down_2 = (fish_OneBarBack[1] < fish[1] and fish_OneBarBack > fish and cci < cci[1]) ? 1 : 0
+plotshape(cci_fish_down_2 == 1 ? round(tmo_length * .8) : na, style=shape.labelup, location=location.absolute, editable=false, color= color.orange, text="S", textcolor=color.white, display=display.none)
+
+
+//################ fish Higher Time Frame ###################
+fish_tf_htf = timeframe.period=="5" ? "D" : timeframe.period == "15" ? "D" : timeframe.period=="30" ? "D" : timeframe.period=="60" ? "D" : timeframe.period=="240" ? "D" : timeframe.period== "D" ? "W" : timeframe.period=="W" ? "M" : na
+
+fish_price_htf = security(syminfo.tickerid, fish_tf_htf, hl2, barmerge.gaps_off, barmerge.lookahead_on)
+fish_maxHigh_htf = highest(fish_price_htf, fish_length)
+fish_minLow_htf = lowest(fish_price_htf, fish_length)
+fish_range_htf = fish_maxHigh_htf - fish_minLow_htf
+fish_sto_htf = fish_range_htf != 0 ? (fish_price_htf - fish_minLow_htf) / fish_range_htf : 0
+
+fish_value_htf =float(na)
+fish_value_htf := (0.66 * (fish_sto_htf - 0.5)) + (0.67 * nz(fish_value_htf[1]))
+fish_trunc_value_htf = fish_value_htf > 0.99 ? 0.999 : fish_value_htf < -0.99 ? -0.999 : fish_value_htf
+fish_htf = 0.0
+fish_htf := (0.5 * log((1 + fish_trunc_value_htf) / (1 - fish_trunc_value_htf))) + (0.5 * nz(fish_htf[1]))
+fish_sig_htf = fish_htf > nz(fish_htf[1]) ? 1 : fish_htf < nz(fish_htf[1]) ? -1 : 0
+
+fish_UpArrow_htf = (fish_htf[1] < fish_htf[2]) and (fish_htf > fish_htf[1]) ? 1 : 0
+fish_DownArrow_htf = (fish_htf[1] > fish_htf[2]) and (fish_htf < fish_htf[1]) ? 1 : 0
+
+//# Find if curent fish is greater then fish previous at least 2 bars back
+fish_up_htf = lowest(fish_htf[1],2) < fish_htf[1] and fish_htf > fish_htf[1] ? 1 : 0
+
+//# Find if current fish is less than previous fish at least 2 bars back
+fish_down_htf = highest(fish_htf[1],2) > fish_htf[1] and fish_htf < fish_htf[1] ? 1 : 0
+
+////////////// ########## CCI Higher Time Frame #############/////////////
+cci_tf_htf = timeframe.period=="5" ? "D" : timeframe.period == "15" ? "D" : timeframe.period=="30" ? "D" : timeframe.period=="60" ? "D" : timeframe.period=="240" ? "D" : timeframe.period== "D" ? "W" : timeframe.period=="W" ? "M" : na
+cci_htf = security(syminfo.tickerid, cci_tf_htf, cci(close + low + high, cci_length),barmerge.gaps_off, barmerge.lookahead_on)
+
+//# Find if CCI current is crossed above AND is greater than 100 within previou 2 bars
+cci_upsignal_htf = lowest(cci_htf[1],2) < 100 and cci_htf > 100 ? 1 : 0
+
+//# Find if CCI current is crossed below  AND is less than -100 within previou 2 bars
+cci_downsignal_htf = highest(cci_htf[1],2) > -100 and cci_htf < -100 ? 1 : 0
+
+//////////////////////////// ##### higher time frame plots ###################//////////////////////////////
+//# Plot arrow if CCI crossed above +100 and is currently greater than +100 and FT has crossed above FTOneBarBack
+cci_fish_up_htf_1 = cci_upsignal_htf and fish_up_htf ? 1 : 0
+//plotshape(cci_fish_up_htf_1 == 1 and timeframe.period != "M" ? -tmo_length : na, style=shape.labelup, editable=false, location=location.absolute, color= color.fuchsia, text='A', textcolor=color.black, display=display.none)
+bgcolor(cci_fish_up_htf_1 == 1 and timeframe.period != "M" ? color.blue : na, editable=false, transp=75)
+
+//# Plot arrow if CCI crossed below -100 and is currently less than -100 and FT has crossed below FTOneBarBack
+cci_fish_down_htf_1 = cci_downsignal_htf and fish_down_htf ? 1 : 0
+//plotshape(cci_fish_down_htf_1 == 1 and timeframe.period != "M" ? tmo_length : na, style=shape.labeldown, editable=false, location=location.absolute, color= color.fuchsia, text='A', textcolor=color.black, display=display.none)
+bgcolor(cci_fish_down_htf_1 == 1 and timeframe.period != "M" ? color.yellow : na, editable=false, transp=75)
+
+//# Signal - Plot if FT has crossed above FTOneBarBack and CCI is greater than previous CCI
+//cci_fish_up_htf_2 = (fish_htf[2] > fish_htf[1] and fish_htf[1] < fish_htf and cci_htf > cci_htf[1]) ? 1 : 0
+//plotshape(cci_fish_up_htf_2 == 1 and timeframe.period !="M" ? -tmo_length : na, style=shape.labelup, editable=false, location=location.absolute, color= color.blue, text="F", textcolor=color.black)
+//bgcolor(cci_fish_up_htf_2 == 1 and timeframe.period !="M" ? color.blue : na, editable=false, transp=50)
+
+//# Signal - Plot if FT has crossed below FTOneBarBack and CCI is less than previous CCI
+//cci_fish_down_htf_2 = (fish_htf[2] < fish_htf[1] and fish_htf[1] > fish_htf and cci_htf < cci_htf[1]) ? 1 : 0
+//plotshape(cci_fish_down_htf_2 == 1 and timeframe.period != "M" ? tmo_length : na, style=shape.labeldown, location=location.absolute, editable=false, color= color.yellow, text="F", textcolor=color.black)
+//bgcolor(cci_fish_down_htf_2 == 1 and timeframe.period != "M" ? color.yellow : na, editable=false, transp=50)
+
+//################ Bull Bear Chop Labels##################
+
+//AvgLength = 13
+//Lengthchop = 13
+//Choppy = 61.8
+//MidLine = 50
+//Trending = 38.2
+//AVG = hma(close, AvgLength)
+
+//trueRange() => na(high[1]) ? high-low : max(max(high - low, abs(high - close[1])), abs(low - close[1]))
+
+//CI = ((log(sum(trueRange(), Lengthchop) / (highest(high >= close[1] ? high : close[1], Lengthchop) - lowest(low <= close[1] ? low : close[1], Lengthchop))) / log(10)) / (log(Lengthchop) / log(10))) * 100
+
+//show_chop_label = 1
+//chop_level = CI > MidLine and CI < 62  ? "MILD CHOP " + tostring(round(CI)) : CI >= 61.8 ? "STRONG CHOP " + tostring(round(CI)) : CI <= MidLine and CI > 31.8 ? "MILD TRENDING " + tostring(round(CI)) : "STRONG TRENDING " + tostring(round(CI))
+//chop_label_color = CI > MidLine ? color.yellow : color.fuchsia
+
+//trend_score = int(na)
+//for _l = 11 to 20
+//    trend_score := nz(trend_score) + (close >= close[_l] ? 1 : -1)
+        
+//col1 = trend_score > 5
+//col2 = trend_score < -5
+//col_neutral = not col1 and not col2
+
+//bull_bear_neutral_label_text = col1 ? "BBN: Bullish" : col2 ? "BBN: Bearish" : col_neutral ? "BBN: Neutral" : na
+//bull_bear_neutral_label_color = col1 ? color.green : col2 ? color.red : col_neutral ? color.fuchsia : na
+
+//var label bull_bear_neutral_label = na
+//label.delete(bull_bear_neutral_label)
+//bull_bear_neutral_label := label.new(x=label_xPos, y=7, xloc=xloc.bar_time, yloc=yloc.price, text=bull_bear_neutral_label_text, color=bull_bear_neutral_label_color, style=label.style_label_center, textcolor=color.white)
+
+//###############Savage Oscillator
+so_sensitivity = 1
+
+so_stoch_1 = max(-100, min(100, ema(stoch(close, high, low, 8), 5)) - 50) / 50.01
+so_stoch_2 = max(-100, min(100, ema(stoch(close, high, low, 17), 5)) - 50) /50.01
+so_stoch_3 = max(-100, min(100, rsi(close,2)) - 50) / 50.01
+
+so_bull =(ema((so_stoch_1 + so_stoch_2 + so_stoch_3)/3,so_sensitivity))*10
+so_w1 = wma(so_bull, 20)
+so_w2 = wma(so_bull, 10)
+so_speedChange = so_bull < 1.5 ? (so_w1-1.5) : (so_w2-1.5) 
+so_bear = (so_speedChange - so_bull)
+so_middle = ((so_bull - so_bear)/2) + so_bear
+
+//plot(so_bull, color=color.green, editable=false, linewidth=2)
+//plot(so_bear, color=color.red, editable=false, linewidth=2)
+//plot(so_middle, color=color.white, editable=false, linewidth=2)
+
+so_top = so_bull > 8 ? so_bull : na
+bgcolor(so_bull > 8 ? color.red : na, transp=70, editable=false)
+
+so_bottom = so_bull < -8 ? so_bull : na
+bgcolor(so_bull < -8 ? color.green : na, transp=70, editable=false)
+
+so_bull_bear_label_text = so_bull > so_bear ? "SO : Bullish" : "SO : Bearish"
+so_bull_bear_label_color = so_bull > so_bear ? color.green : color.red
+
+var label so_bull_bear_label = na
+label.delete(so_bull_bear_label)
+so_bull_bear_label := label.new(x=label_xPos, y=0, xloc=xloc.bar_time, yloc=yloc.price, text=so_bull_bear_label_text, color=so_bull_bear_label_color, style=label.style_label_center, textcolor=color.white)

@@ -1,0 +1,220 @@
+//@version=4
+study(title="Z-Score / Accumlation-Distribution", shorttitle="ZSADSQZ")
+
+barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+label_xPos   = timenow + barSize*7
+
+to_z_score_range(p, A, B, C, D) => 
+    scale = (D-C)/(B-A)
+    offset = -A*(D-C)/(B-A) + C
+    q = p*scale + offset
+
+
+indicator_type = input(defval='Z-Score', title='Select Indicator', options=['Z-Score', 'Accumlation-Distribution'])
+indicator_num = indicator_type == 'Z-Score' ? 1 : indicator_type == 'Accumlation-Distribution' ? 2 : na
+
+//################# Z-Score #################
+zs_period = input(26, title="Z-Score Moving Avg Length")
+
+zs_stdDev = stdev(close, zs_period)
+zs_ma = ema(close, zs_period)
+zs_res = (close - zs_ma) / zs_stdDev
+
+p3=hline(3, color=color.red, linestyle=hline.style_dashed, editable=false)
+p2=hline(2, color=color.orange, linestyle=hline.style_dashed, editable=false)
+p1=hline(1, color=color.green, linestyle=hline.style_dashed, editable=false)
+p0=hline(0, color=color.white, linestyle=hline.style_dashed, editable=false)
+p_1=hline(-1, color=color.green, linestyle=hline.style_dashed, editable=false)
+p_2=hline(-2, color=color.orange, linestyle=hline.style_dashed, editable=false)
+p_3=hline(-3, color=color.red, linestyle=hline.style_dashed, editable=false)
+plot(indicator_num == 1 ? zs_res : na, color=color.white, title="Z-Score", editable=false, linewidth=2)
+
+//###########Accumlation Distrbution//////////
+totalall(s) => 
+    totalall = float(na)
+    totalall := na(totalall[1]) ? s : totalall[1] + s
+    totalall
+
+highestall(s) => 
+    maxall = float(na)
+    maxall := na(maxall[1]) ? s : max(maxall[1], s)
+    maxall
+
+lowestall(s) => 
+    minall = float(na)
+    minall := na(minall[1]) ? s : min(minall[1], s)
+    minall
+
+acd_data = close > close[1] ? close - min(close[1], low) : close < close[1] ? close - max(close[1], high) : 0
+acd_ad = totalall(acd_data)
+acd_accDist = (acd_ad - lowestall(acd_ad)) /(highestall(acd_ad) - lowestall(acd_ad))
+
+acd_smoothK = 14
+acd_smoothD = 1
+acd_k = sma(stoch(close, high, low, acd_smoothK), 3)
+acd_d = sma(acd_k, acd_smoothD)
+acd_slowd =  (acd_d - lowestall(acd_d)) /(highestall(acd_d) - lowestall(acd_d))
+
+//acd_p1=hline(1, color = color.red, editable=false)
+//acd_p2=hline(0.786, color = color.maroon, editable=false)
+//fill(acd_p1,acd_p2, color = color.red, editable = false, transp = 90)
+//hline(0.5, color = color.gray, editable=false, linestyle=hline.style_solid)
+//acd_p5 = hline(0.236, color = color.green, editable=false)
+//acd_p6 = hline(0, color = color.gray, editable=false)
+//fill(acd_p5,acd_p6, color = color.lime, editable = false, transp = 90) 
+
+plot(indicator_num == 2 ? to_z_score_range(acd_accDist, 0, 1, -3, 3) : na, color=color.yellow, linewidth=2, editable=false)
+plot(indicator_num == 2 ? to_z_score_range(acd_slowd, 0, 1, -3, 3) : na, color=color.aqua, linewidth=2, editable=false)
+
+//###############Savage Oscillator
+so_sensitivity = 1
+
+so_stoch_1 = max(-100, min(100, ema(stoch(close, high, low, 8), 5)) - 50) / 50.01
+so_stoch_2 = max(-100, min(100, ema(stoch(close, high, low, 17), 5)) - 50) /50.01
+so_stoch_3 = max(-100, min(100, rsi(close,2)) - 50) / 50.01
+
+so_bull =(ema((so_stoch_1 + so_stoch_2 + so_stoch_3)/3,so_sensitivity))*10
+so_w1 = wma(so_bull, 20)
+so_w2 = wma(so_bull, 10)
+so_speedChange = so_bull < 1.5 ? (so_w1-1.5) : (so_w2-1.5) 
+so_bear = (so_speedChange - so_bull)
+so_middle = ((so_bull - so_bear)/2) + so_bear
+
+plot(so_bull, color=color.green, editable=false, display=display.none)
+plot(so_bear, color=color.red, editable=false, display=display.none)
+plot(so_middle, color=color.white, editable=false, display=display.none)
+
+bgcolor(so_bull > 8 ? color.red : na, transp=70, editable=false)
+bgcolor(so_bull < -8 ? color.green : na, transp=70, editable=false)
+
+//######## Savage Oscillator Higher Time Frame #################
+htf = timeframe.period=="5" ? "30" : timeframe.period == "15" ? "120" : timeframe.period=="30" ? "180" : timeframe.period=="60" ? "360" : timeframe.period=="240" ? "D" : timeframe.period== "D" ? "W" : timeframe.period=="W" ? "M" : na
+so_stoch_htf_1 = security(syminfo.tickerid, htf, so_stoch_1, barmerge.gaps_off, barmerge.lookahead_on)
+so_stoch_htf_2 = security(syminfo.tickerid, htf, so_stoch_2, barmerge.gaps_off, barmerge.lookahead_on)
+so_stoch_htf_3 = security(syminfo.tickerid, htf, so_stoch_3, barmerge.gaps_off, barmerge.lookahead_on)
+
+so_bull_htf =(ema((so_stoch_htf_1 + so_stoch_htf_2 + so_stoch_htf_3)/3,so_sensitivity))*10
+so_w1_htf = wma(so_bull_htf, 20)
+so_w2_htf = wma(so_bull_htf, 10)
+so_speedChange_htf = so_bull_htf < 1.5 ? (so_w1_htf-1.5) : (so_w2_htf-1.5) 
+so_bear_htf = (so_speedChange_htf - so_bull_htf)
+so_middle_htf = ((so_bull_htf - so_bear_htf)/2) + so_bear_htf
+
+bgcolor(so_bull_htf > 8 ? color.yellow : na, transp=70, editable=false)
+bgcolor(so_bull_htf < -8 ? color.blue : na, transp=70, editable=false)
+
+//so_bull_bear_label_text = so_bull > so_bear ? "SO : Bullish" : "SO : Bearish"
+//so_bull_bear_label_color = so_bull > so_bear ? color.green : color.red
+
+//var label so_bull_bear_label = na
+//label.delete(so_bull_bear_label)
+//so_bull_bear_label := label.new(x=label_xPos, y=2, xloc=xloc.bar_time, yloc=yloc.price, text=so_bull_bear_label_text, color=so_bull_bear_label_color, style=label.style_label_center, textcolor=color.white)
+
+//##################### TTM Squeeze ######################
+msqz_src = close
+msqz_length = 20
+
+
+//Bollinger Bands Basis Line
+msqz_basis = sma(msqz_src, msqz_length)
+
+//Keltner Channel Basis Line
+msqz_basiskc = sma(msqz_src, msqz_length)
+
+// Keltner Channel Low
+msqz_rangemal = sma(tr, msqz_length)
+
+// Keltner Channel Mid
+msqz_rangemam = sma(tr, msqz_length)
+
+//Keltner Channel High
+msqz_rangemah = sma(tr, msqz_length)
+
+//Bollinger Bands Multiplier
+msqz_mult = 2.0
+
+//Keltner Channel Low Multiplier
+msqz_multlowKC = 2.0
+
+//Keltner Channel Mid Multiplier
+msqz_multmidKC = 1.5
+
+//Keltner Channel High Multiplier
+msqz_multhighKC = 1.0
+
+//Bollinger Bands 
+msqz_dev = msqz_mult * stdev(msqz_src, msqz_length)
+msqz_upperBB = msqz_basis + msqz_dev
+msqz_lowerBB = msqz_basis - msqz_dev
+
+//Keltner Channel Bands Low 
+msqz_upperKCl = msqz_basiskc + msqz_rangemal * msqz_multlowKC
+msqz_lowerKCl = msqz_basiskc - msqz_rangemal * msqz_multlowKC
+
+//Keltner Channel Bands Mid
+msqz_upperKCm = msqz_basiskc + msqz_rangemam * msqz_multmidKC
+msqz_lowerKCm = msqz_basiskc - msqz_rangemam * msqz_multmidKC
+
+//Keltner Channel Bands High
+msqz_upperKCh = msqz_basiskc + msqz_rangemah * msqz_multhighKC
+msqz_lowerKCh = msqz_basiskc - msqz_rangemah * msqz_multhighKC
+
+//------------------------{ Squeeze Basics }------------------------------------
+
+//Squeeze Momentum
+msqz_sz = linreg(msqz_src - avg(avg(highest(high, msqz_length), lowest(low, msqz_length)), ema(close, msqz_length)), msqz_length, 0)
+
+//Squeeze Conditions
+msqz_sc1 = msqz_sz >= 0
+msqz_sc2 = msqz_sz < 0
+msqz_sc3 = msqz_sz >= msqz_sz[1]
+msqz_sc4 = msqz_sz < msqz_sz[1]
+msqz_sc5 = msqz_sz < 1
+msqz_sc6 = msqz_sz > -1
+
+//Squeeze On
+msqz_lowsqz = msqz_lowerBB > msqz_lowerKCl and msqz_upperBB < msqz_upperKCl
+msqz_lsf = msqz_lowsqz == false
+msqz_midsqz = msqz_lowerBB > msqz_lowerKCm and msqz_upperBB < msqz_upperKCm
+msqz_msf = msqz_midsqz == false
+msqz_highsqz = msqz_lowerBB > msqz_lowerKCh and msqz_upperBB < msqz_upperKCh
+msqz_hsf = msqz_highsqz == false
+
+//Squeeze Dot Plot Zero Line
+//Squeeze Dot Colors
+msqz_line_num = -3
+msqz_sqzproc = msqz_highsqz ? color.yellow : msqz_midsqz ? color.red : na //msqz_lowsqz ? color.white : msqz_lowsqz ? #000000 : na
+msqz_on_off = msqz_highsqz ? "On | High" : msqz_midsqz ? "On" : "Off"
+msqz_sqzproz = msqz_highsqz ? msqz_line_num : msqz_midsqz ? msqz_line_num : msqz_lowsqz ? msqz_line_num : na
+plotshape(msqz_sqzproz, title="Zero Line Squeeze", color=msqz_sqzproc, location=location.absolute, style=shape.square,transp=0, editable=false)
+
+//Squeeze Plot
+msqz_color = msqz_sc1 and msqz_sc3 ? color.green : msqz_sc1 and msqz_sc4 ? color.blue : msqz_sc2 and msqz_sc4 ? color.red : msqz_sc2 and msqz_sc3 ? color.orange : color.gray
+msqz_text = msqz_sc1 and msqz_sc3 or msqz_sc1 and msqz_sc4 ? "SQZ | Bullish | " + msqz_on_off : msqz_sc2 and msqz_sc4 or msqz_sc2 and msqz_sc3 ? "SQZ | Bearish | " + msqz_on_off : "SQZ | Neutral | " + msqz_on_off
+//plot(msqz_sz, title="Squeeze Momentum", color=msqz_choice, style=plot.style_columns, linewidth=1)
+var label msqz_bull_bear_neutral_label = na
+label.delete(msqz_bull_bear_neutral_label)
+msqz_bull_bear_neutral_label := label.new(x=label_xPos, y=0, xloc=xloc.bar_time, yloc=yloc.price, text=msqz_text, color=msqz_color, style=label.style_label_center, textcolor=color.white)
+
+//Start Of Squeeze
+//sol         = barssince(lsf) == 1
+//som         = barssince(msf) == 1
+//soh         = barssince(hsf) == 1
+
+//End Of Squeeze
+//eol         = barssince(lowsqz) == 1
+//eom         = barssince(midsqz) == 1
+//eoh         = barssince(highsqz) == 1
+
+//############### Volume Notifier #############
+vo_volumeAveragingLength = 20
+vo_volumePercentThreshold = 60
+
+vo_line_num = 0
+vo_aVol = sum(volume, vo_volumeAveragingLength) / vo_volumeAveragingLength
+vo_pVol = 100 * ((volume - vo_aVol[1]) / vo_aVol[1])
+vo_pDot = vo_pVol >= vo_volumePercentThreshold ? vo_line_num : na
+plotshape(vo_pDot, title="Zero Line Squeeze", color=color.blue, location=location.absolute, style=shape.arrowup,transp=0, editable=false)

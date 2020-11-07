@@ -1,0 +1,104 @@
+//@version=4 
+//Name: Price Action Channel Trading System v0.3 by JustUncleL
+//Created By: JustUncleL on 3 Aug 2016
+//Version: 0.3
+//
+//Description: 
+//  This is an implementation of 'Price Action Channel, “The Gold line” Trading System'
+//  for Binary Options, originally a scapling system, but without the MA cross "Arrow1".
+//  This is a Trend following price action system.
+//  To complete the setup instead of the two "Chandelier Stop" indications, 
+//  I replaced them with a MACD(12,17,8) indicator.
+//  This is suitable for 15min charts, with 2 to 4 candle (30min to 60min) expiry.
+//
+//  Call Entry:
+//  - Green Triangle, confirmed by MACD background green.
+//  - CCI Candles aqua.
+//  - For best call entry wait for the price retrace back to the gold line, 
+//    back inside channel also works well.
+//
+//  Put Entry:
+//  - Red Triangle, confirmed by MACD background red.
+//  - CCI Candles black.
+//  - For best put entry wait for the price retrace on the gold line,
+//    back inside channel also works well.
+//
+//Notes:
+//  - will work well on trending patterns only.
+//  - works best on the first alert after MACD cross over.
+//  - don't take trades when MACD and signal are close together.
+//  - don't trade when channel and slow MA are flat or close together or
+//    chopper (yellow and blue MA cross over quickly over short period).
+//
+//Modifications:
+//  0.3 : Added optional filters for trend direction from MACD slow EMA(17)
+//        and also RSI(7) filter.
+//        Some corrections: 
+//        - input for lenLower minval=1 should be maxval=-1
+//        - one bar pullback did not reset trigger, missing some alerts
+//  0.2 : Use MACD instead of Chandelier Stop for filtering, giving
+//        a simplier looking chart.
+//  0.1 : Original version.
+//
+// reference:
+//  - Chandelier Stop by pipCharlie (not used in this version)
+//  - http://www.forexstrategiesresources.com/scalping-forex-strategies/73-price-action-channel-the-gold-line/
+//  - Used some ideas from RSI Candles by glaz
+//
+study(title="My_Price_Action_Trading_System_v0.3", shorttitle="PAT")
+//
+len = 14
+lenUpper = 75
+lenLower = -75
+src = close
+lenLo   = 5
+lenHi   = 5
+lenMe = 4
+//
+fastLength = 12
+slowLength=17
+signalLength=8
+//
+rsiLen  = 7
+rsiUpper= 70
+rsiLower= 30
+//
+filterM = true
+filterR = true
+filterE = true
+dCandles= 4
+//
+rsiVal = rsi(src,rsiLen)
+//
+// Calculate MACD and color background
+fastMC = ema(src, fastLength)
+slowMC = ema(src, slowLength)
+macd = fastMC - slowMC
+signal = sma(macd, signalLength)
+OutputSignal = signal > macd ? 1 : signal < macd ? -1 : 0
+bgcolor(OutputSignal>0?color.red: OutputSignal<0?color.green:color.yellow, transp=90, editable=false)
+
+// Calculate and draw the Price Action channel 
+emaLo = ema(low,lenLo)
+emaHi = ema(high,lenHi)
+emaMe = ema(hl2,lenMe)
+
+// Calculate CCI
+cciVal = cci(src, len)
+
+// Calculate CCI indicating continuance of trend.
+isup = cciVal > lenUpper
+isdown = cciVal < lenLower
+
+// Check have alert and use MACD filter
+cciup_alert = int(na)
+
+cciup_alert := isup and close>open and (not filterR or rsiVal>rsiUpper) and (not filterM or OutputSignal<0) and 
+              (not filterE or (emaMe>slowMC and rising(slowMC,dCandles))) ? na(cciup_alert[1]) ? 1 : nz(cciup_alert[1]) + 1 : 0
+           
+ccidn_alert = int(na)
+ccidn_alert := isdown and close<open and (not filterR or rsiVal<rsiLower) and (not filterM or OutputSignal>0) and 
+              (not filterE or (emaMe<slowMC and falling(slowMC,dCandles))) ? na(ccidn_alert[1]) ? 1 : nz(ccidn_alert[1])+1 : 0
+//
+plotshape(cciup_alert==1? cciup_alert : na, title="CCIPAT Up Arrow", style=shape.triangleup,location=location.bottom, color=color.green, transp=0, editable=false)
+plotshape(ccidn_alert==1? ccidn_alert : na, title="CCIPAT Down Arrow", style=shape.triangledown,location=location.top, color=color.red, transp=0, editable=false)

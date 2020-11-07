@@ -1,0 +1,211 @@
+#Study: FW_FT_3xStochastics
+#
+# Adapted from: ToS Fisher Transform
+#
+# Modifications by ToS User: managematics
+#
+#hint:<b>Fisher Stochastics (FS)</b>\nHelps time changes in trend by transforming price and transforming stochastics using a statistical method called Fisher Transform.  The original Fisher Transform and the three transformed stochastics work together to provide both early warning and later confirmation of a trend change.
+#
+#   Additional details available in the user guide which can
+#   be found at:  [insert link here]
+#
+#   Discussion of input parameters:
+#
+#   fisher len: number of bars to look at for fisher transform.
+#               Default is 5.
+#
+#   ob os: Position of overbought and oversold lines.  Default
+#          is 120.  Description is in user guide.
+#
+#   hide soap:
+#     yes(defaul): Does not show vertical lines for SOAP
+#                  signals.
+#     no: Shows soap signals as vertical lines.
+#
+# Revision history:
+#  Rev       Date        Change Description
+# ------     ----------  ------------------
+# 01F        2010-01-23  Original
+# 02-V01     2010-02-20  - Added ability to scale study so
+#                           arrows are visible on screen
+#                        - Increased default size of magenta arrow
+# 02-V02     2010-11-16  - Fixed a bug defining the fisher value was causing the blue
+#                          fisher line to not plot - due to changes in Release 1754/1755
+# 02-V03     2020-09-21  - @cos251 - updated vertical line colors for SOAP TEMPLATE Buy
+#                          and Sell signals from cyan and yellow to green and red 
+#                          respectively.  Added shaded areas for SOAPCount to shade 
+#                          DARK GREEN for SOAPCount == 1, GREE for SOAPCount > 1, DARK 
+#                          RED for SOAPCount == -1 and RED for SOAPCount < -1.  Changed 
+#                          obl and osl lines to default color blue to matchingLow RAF.
+# 02-V04     2020-09-23  - @cos251 - Added MovAvg of FS17x5 for validation of cross up or down.
+#                          Added 34 TEMA to simulate RAF Pro trend areas.
+#
+
+declare lower;
+
+
+input FisherLen = 5;
+input ObOs = 120;
+input hideSoap = no;
+input arrow_location = { "Partially_Onscreen",default "Always_Onscreen", "Possibly_Offscreen"};
+input Fish17x5MALength = 12;
+
+
+def margin;
+
+switch (arrow_location) {
+case Always_Onscreen:
+    margin = 2.0;
+case Partially_Onscreen:
+    margin = 0.5;
+case Possibly_Offscreen:
+    margin = 0;
+}
+
+def CountChg;
+rec SOAPCount;
+def maxHigh = Highest(high, FisherLen);
+def minLow = Lowest(low, FisherLen);
+def k1v = Max(-100, Min(100, (StochasticFull(KPeriod = 5, slowing_period = 3, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+def k2v = Max(-100, Min(100, (StochasticFull(KPeriod = 8, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+def k3v = Max(-100, Min(100, (StochasticFull(KPeriod = 17, slowing_period = 5, averageType = AverageType.EXPONENTIAL))) - 50) / 50.01;
+def R1v = Max(-100, Min(100, reference RSI(2)) - 50) / 50.01;
+
+
+
+# Plot Zero line and 34 TEMA
+def tEMA = 34;
+def sTema = TEMA(close, tEMA);
+plot ZeroLine = 0;
+ZeroLine.SetDefaultColor(Color.WHITE);
+ZeroLine.AssignValueColor(if sTema > sTema[1] then Color.GREEN else if sTema == sTema[1] then Color.YELLOW else Color.RED);
+
+
+plot obl = ObOs / 100;
+plot osl = -ObOs / 100;
+obl.SetDefaultColor(Color.BLUE);
+osl.SetDefaultColor(Color.BLUE);
+obl.SetLineWeight(2);
+osl.SetLineWeight(2);
+
+if k2v > 0
+Then {
+    CountChg = if k1v <= k2v and k1v[1] > k2v[1] and k2v[1] > 0 then -1 else 0;
+    SOAPCount = CompoundValue(1,  Min (0, SOAPCount[1]) + CountChg, 0);
+}
+else {
+    CountChg = if k1v >= k2v and k1v[1] < k2v[1] and k2v[1] <= 0 then 1 else 0;
+    SOAPCount = CompoundValue (1,  Max (0, SOAPCount[1]) + CountChg, 0);
+}
+
+AddVerticalLine (!hideSoap and ((k2v > 0 and k1v <= k2v and k1v[1] > k2v[1]) or (k2v < 0 and k1v >= k2v and k1v[1] < k2v[1])),
+if AbsValue(SOAPCount) > 1 then "AIM" else if AbsValue(SOAPCount) == 1 then "READY" else if AbsValue(SOAPCount) < -1 then "READY" else if AbsValue(SOAPCount) == 0 then "READY" else "AIM",
+if SOAPCount > 1 then
+    Color.GREEN
+else if SOAPCount == 1 then
+    Color.DARK_GREEN
+    # was CYAN
+else if SOAPCount < -1 then
+    Color.RED
+else Color.DARK_RED);
+# WAS YELLOW
+AddLabel(yes, SOAPCount);
+
+
+rec fish1 = CompoundValue(1, 0.5 * (Log((1 + k1v) / (1 - k1v)) + fish1[1]), 0);
+rec fish2 = CompoundValue(1,   0.5 * (Log((1 + k2v) / (1 - k2v)) + fish2[1]), 0);
+rec fish3 = CompoundValue(1, 0.5 * (Log((1 + k3v) / (1 - k3v)) + fish3[1]), 0);
+rec fish4 = CompoundValue(1, 0.5 * (Log((1 + R1v) / (1 - R1v)) + fish4[1]), 0);
+rec value = CompoundValue(1, if maxHigh - minLow == 0 then 0 else 0.66 * ((close - minLow) / (maxHigh - minLow) - 0.5) + 0.67 * value[1], 0);
+def truncValue = if value > 0.99 then 0.999 else if value < -0.99 then -0.999 else value;
+rec fish = CompoundValue(1, 0.5 * (Log((1 + truncValue) / (1 - truncValue)) + fish[1]), 0);
+
+
+# ADD CLOUDS between over-bought and over-sold lines (1.2 and -1.2) for cases where SOAPCount equal certain states. (1, >1, -1, <-1)
+# Get states of SOAPCount
+def soapOneBool = if SOAPCount == 1 then 1 else 0;
+def soapGreaterOneBool = if SOAPCount > 1 then 1 else 0;
+def soapNegOneBool = if SOAPCount == -1 then 1 else 0;
+def soapLessThanNegOneBool = if SOAPCount < -1 then 1 else 0;
+
+# Add cloud for each state if true
+AddCloud(if soapOneBool then obl else Double.NaN, if !soapGreaterOneBool then osl else Double.NaN, Color.DARK_GREEN, Color.GREEN);
+AddCloud(if soapGreaterOneBool then obl else Double.NaN, if !soapOneBool then osl else Double.NaN, Color.GREEN);
+AddCloud(if soapNegOneBool then obl else Double.NaN, if !soapLessThanNegOneBool then osl else Double.NaN, Color.DARK_RED);
+AddCloud(if soapLessThanNegOneBool then obl else Double.NaN,      if !soapNegOneBool then osl else Double.NaN,      Color.RED);
+
+
+plot FS5x3 = fish1;
+plot FS8x5 = fish2;
+plot FS17x5 = fish3;
+plot FS17x5MA = MovingAverage(AverageType.Exponential, fish3, Fish17x5MALength);
+FS17x5MA.SetLineWeight(2);
+FS17x5MA.SetDefaultColor(Color.RED);
+FS17x5MA.AssignValueColor(if FS17x5MA > FS17x5MA[1] then Color.GREEN else if FS17x5MA == FS17x5MA[1] then Color.WHITE else Color.RED);
+plot FT = fish;
+
+plot FS17x5u = if (Sign (fish3 - fish3[1]) > Sign (fish3[1] - fish3[2])) then fish3[1] else Double.NaN;
+plot FS8x5u = if (Sign (fish2 - fish2[1]) > Sign (fish2[1] - fish2[2])) then fish2[1] else Double.NaN;
+plot FS5x3u = if (Sign (fish1 - fish1[1]) > Sign (fish1[1] - fish1[2])) then fish1[1] else Double.NaN;
+plot FTu = if (Sign (fish - fish[1]) > Sign (fish[1] - fish[2])) then fish[1] else Double.NaN;
+
+
+plot FS17x5d = if (Sign (fish3 - fish3[1]) < Sign (fish3[1] - fish3[2])) then fish3[1] else Double.NaN;
+plot FS8x5d = if (Sign (fish2 - fish2[1]) < Sign (fish2[1] - fish2[2])) then fish2[1] else Double.NaN;
+plot FS5x3d = if (Sign (fish1 - fish1[1]) < Sign (fish1[1] - fish1[2])) then fish1[1] else Double.NaN;
+plot FTd = if (Sign (fish - fish[1]) < Sign (fish[1] - fish[2])) then fish[1] else Double.NaN;
+
+
+
+FS5x3.SetDefaultColor(GetColor(8));
+FS8x5.SetDefaultColor(GetColor(6));
+FS17x5.SetDefaultColor(Color.MAGENTA);
+FT.SetDefaultColor(Color.CYAN);
+
+FS5x3u.SetDefaultColor(GetColor(8));
+FS8x5u.SetDefaultColor(GetColor(6));
+FS17x5u.SetDefaultColor(Color.MAGENTA);
+FTu.SetDefaultColor(Color.CYAN);
+FS5x3d.SetDefaultColor(GetColor(8));
+FS8x5d.SetDefaultColor(GetColor(6));
+FS17x5d.SetDefaultColor(Color.MAGENTA);
+FTd.SetDefaultColor(Color.CYAN);
+FS5x3.Hide();
+FS8x5.Hide();
+FT.Hide();
+FS5x3u.Hide();
+FS8x5u.Hide();
+FTu.Hide();
+FS5x3d.Hide();
+FS8x5d.Hide();
+FTd.Hide();
+
+FS5x3u.SetPaintingStrategy(PaintingStrategy.ARROW_UP);
+FS8x5u.SetPaintingStrategy(PaintingStrategy.ARROW_UP);
+FS17x5u.SetPaintingStrategy(PaintingStrategy.ARROW_UP);
+FTu.SetPaintingStrategy(PaintingStrategy.ARROW_UP);
+FS5x3d.SetPaintingStrategy(PaintingStrategy.ARROW_DOWN);
+FS8x5d.SetPaintingStrategy(PaintingStrategy.ARROW_DOWN);
+FS17x5d.SetPaintingStrategy(PaintingStrategy.ARROW_DOWN);
+FTd.SetPaintingStrategy(PaintingStrategy.ARROW_DOWN);
+
+FS17x5u.SetLineWeight(3);
+FS8x5u.SetLineWeight(3);
+FS5x3u.SetLineWeight(2);
+FTu.SetLineWeight(1);
+FS17x5d.SetLineWeight(3);
+FS8x5d.SetLineWeight(3);
+FS5x3d.SetLineWeight(2);
+FTd.SetLineWeight(1);
+
+
+#plot dummydot1 = if margin == 0 or (IsNaN(FS17x5u) && IsNaN(FS8x5u) && IsNaN(FS5x3u) #&& IsNaN(FTu)) then Double.NaN else Min(FS17x5, Min(FS8x5, Min(FS5x3, FT))) - margin;
+#plot dummydot2 = if margin == 0 or (IsNaN(FS17x5d) && IsNaN(FS8x5d) && IsNaN(FS5x3d) #&& IsNaN(FTd)) then Double.NaN else Max(FS17x5, Max(FS8x5, Max(FS5x3, FT))) + margin;
+#dummydot1.SetLineWeight(1);
+#dummydot1.SetPaintingStrategy(PaintingStrategy.POINTS);
+#dummydot2.SetLineWeight(1);
+#dummydot2.SetPaintingStrategy(PaintingStrategy.POINTS);
+#dummydot1.SetDefaultColor (Color.DARK_GRAY);
+#dummydot2.SetDefaultColor (Color.DARK_GRAY);
+#dummydot1.Hide();
+#dummydot2.Hide();
