@@ -1,0 +1,58 @@
+//@version=4
+study(shorttitle = "PBT", title="Pullback Trading [Fhenry0331]", overlay=false)
+
+// Trend Lenght: Cross of 13/26 is used. 
+length = input(2, minval=1)
+nv = input(false, title="Normalized volume")
+useCurrentRes = input(false, title="Use Current Chart Resolution?")
+resCustom = input(title="Use Different Timeframe? Uncheck Box Above", type=input.resolution, defval="W")
+ema1length = input(8)
+ema2length = input(13)
+useCurrentRes_1 = input(true, title="Use Current Chart Resolution For EMA Lengths?")
+
+ema1 = ema(close, ema1length)
+ema2 = ema (close, ema2length)
+
+//Black cross notates start of trend: aggresive entry can be used at the start of the trend.
+//13 ema above 26 ema: Long
+//13 ema below 26 ema: short
+//Entry should be above the intial bar that that started the trend. The cross "X"
+long = security(syminfo.tickerid, useCurrentRes ? timeframe.period : resCustom, ema1, barmerge.gaps_off, barmerge.lookahead_on)
+short = security(syminfo.tickerid, useCurrentRes ? timeframe.period : resCustom, ema2, barmerge.gaps_off, barmerge.lookahead_on)
+plot(cross(long, short) ? short : na,  style = plot.style_cross, color = color.black, linewidth = 4)
+
+//Force Index with a lenght of "2" is used for pullbacks (lenght of "2" will produce a sensitive index)
+close_src = security(syminfo.tickerid, useCurrentRes ? timeframe.period : resCustom, close, barmerge.gaps_off, barmerge.lookahead_on)
+volume_src = security(syminfo.tickerid, useCurrentRes ? timeframe.period : resCustom, volume, barmerge.gaps_off, barmerge.lookahead_on)
+efi = security(syminfo.tickerid, useCurrentRes ? timeframe.period : resCustom, sma(change(close_src) * volume_src, length), barmerge.gaps_off, barmerge.lookahead_on)
+
+plot(efi, color=color.blue, title="EFI")
+hline(100, title="Zero")
+
+//blue bars for uptrend
+cond1 = useCurrentRes_1 ? ema1 > ema2 : long > short
+bgcolor (cond1 ? color.lime : na)
+
+//purple bars for downtrend
+cond2 = useCurrentRes_1 ? ema2 > ema1 : short > long
+bgcolor (cond2 ? color.red : na)
+
+//pullback in uptrend. Force Index below zero, but 13 ema is still above 26 ema(still uptrend)
+//price closes below 13 ema with the Force Index below the zero line
+//notates pullback in an uptrend
+//place buy orders above pullback bars notated aqua up triangle and also white background in the indicator
+cond3_current = efi < 0  and low < ema1 and ema1 > ema2 ? 1 : 0
+cond3_custom_htf = efi < 0  and low < long and long > short ? 1 : 0
+cond3 = useCurrentRes_1 ? cond3_current : cond3_custom_htf
+plotshape(cond3, style=shape.triangleup, location=location.bottom, color=color.aqua, transp=0, offset=0) 
+bgcolor (cond3 ? color.white : na)
+
+//pullback in downtrend. Force Index above zero, but 26 ema is still above 13 ema (still downtrend)
+//price closes above 13 ema with the Force Index above zero
+//notates pullback in a downtrnd.
+//place sell orders below pullback bars notated red down triangle and also yellow/orange background in the indicator
+cond4_current = efi > 0 and high > ema1 and ema1 < ema2 ? 1 : 0
+cond4_custom_htf= efi > 0 and high > long and long < short ? 1 : 0
+cond4 = useCurrentRes_1 ? cond4_current : cond4_custom_htf
+plotshape (cond4, style=shape.triangledown, location=location.top, color=color.red, transp=0, offset=0)
+bgcolor (cond4 ? color.yellow : na)
