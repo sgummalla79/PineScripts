@@ -1,0 +1,215 @@
+//@version=4
+study(title="My_Combo_Indicators_Lower", shorttitle="MCIL")
+
+barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+label_xPos   = timenow + barSize*7
+
+truncate(number, decimals) =>
+    factor = pow(10, decimals)
+    int(number * factor) / factor
+    
+to_range(p, A, B, C, D) => 
+    scale = (D-C)/(B-A)
+    offset = -A*(D-C)/(B-A) + C
+    q = p*scale + offset
+
+zero_line_plot = plot(0, color=color.gray, editable=false)
+
+indicator_type = input(defval='Savage Oscillator', title='Select Indicator', options=[ 'MACD', 'Ultimate MACD' , 'Z-Score', 'Accumlation-Distribution', 'Savage Oscillator', 'Hot Zone RSI'])
+indicator_num = indicator_type == 'MACD' ? 1 : indicator_type == 'Ultimate MACD' ? 2 : indicator_type == 'Z-Score' ? 3 : indicator_type == 'Accumlation-Distribution' ? 4 : indicator_type == 'Savage Oscillator' ? 5 : indicator_type == 'Hot Zone RSI' ? 6 : na
+
+macd_plot = indicator_num == 1
+umacd_plot = indicator_num == 2
+zs_plot = indicator_num == 3
+acd_plot = indicator_num == 4
+so_plot = indicator_num == 5
+hzr_plot = indicator_num == 6
+
+
+//####################################################### MACD #####################################################
+[macd, signal, hist] = macd(close, 12, 26, 9)
+
+//macd
+macd_color = macd_plot ? color.red : (umacd_plot ? (macd > macd[1] ? color.green : macd == macd[1] ? color.white : color.red) : na)
+macd_p1 = plot((macd_plot or umacd_plot) ? macd : na, color=macd_color, editable=false)
+
+//signal
+plot(macd_plot ? signal : na, color=color.blue, editable=false)
+
+//hist
+hist_color = hist <= 0 ? (hist > hist[1] ? color.gray : color.red) : (hist < hist[1] ? color.gray : color.green)
+plot(macd_plot ? hist : na, color=hist_color, style=plot.style_columns, histbase=0, transp=70, editable=false)
+
+bgcolor((hist > 0 ? color.green : color.red), title="MACD-Histogram", transp = 100)
+bgcolor((hist > 0 and hist < hist[1]) or (hist < 0 and hist > hist[1])  ? color.white : na, title="MACD-Histogram-White", transp = 100)
+
+//################################ Ultimate MACD ##############################
+[umacd_middle, umacd_upper, umacd_lower] = bb(macd, 20, 2)
+
+umacd_value = ema(close, 12) - ema(close, 26)
+umacd_avg = ema(umacd_value, 9)
+umacd_p2 = plot(umacd_plot ? umacd_avg : na, color=color.white, editable=false, linewidth=1)
+
+fill(macd_p1,umacd_p2, color=macd > umacd_avg ? color.lime : color.red, editable=false, transp=70)
+
+umacd_bb_bands_color = umacd_upper > umacd_upper[1] and umacd_lower < umacd_lower[1] ? color.aqua : umacd_upper < umacd_upper[1] and umacd_lower > umacd_lower[1] ? #f8bbd0 : color.gray
+plot(umacd_plot ? umacd_upper : na, color=umacd_bb_bands_color, editable=false, linewidth = 2)
+plot(umacd_plot ? umacd_middle : na, color=color.gray, editable=false, linewidth = 2)
+plot(umacd_plot ? umacd_lower : na, color=umacd_bb_bands_color, editable=false, linewidth = 2)
+
+//####################################################### Z-Score #####################################################
+zs_period = input(26, title="Z-Score Length")
+
+zs_oneSD = stdev(low, zs_period)
+zs_avg_close = sma(low, zs_period)
+zs_ofOneSD = zs_oneSD * low[1]
+zs_zscore_val = (low - zs_avg_close) / zs_oneSD
+zs_avg_zscore_val = sum(zs_zscore_val, zs_period) / zs_period
+
+//Buy Conditions, currently set at 0.75
+buy_cond = crossover(zs_zscore_val, zs_avg_zscore_val) and zs_avg_zscore_val < -0.75
+sell_cond = crossunder(zs_zscore_val, zs_avg_zscore_val)and zs_avg_zscore_val > 0.75
+
+plot(zs_plot ? 3 : na, color=color.new(color.red,60), editable=false)
+plot(zs_plot ? 2 : na, color=color.new(color.orange,60), editable=false)
+plot(zs_plot ? 1 : na, color=color.new(color.green,60), editable=false)
+//plot(zs_plot ? 0 : na , color=color.new(color.white,60), editable=false)
+plot(zs_plot ? -1 : na, color=color.new(color.green,60), editable=false)
+plot(zs_plot ? -2 : na, color=color.new(color.orange,60), editable=false)
+plot(zs_plot ? -3 : na, color=color.new(color.red,60), editable=false)
+
+plot(zs_plot ? zs_zscore_val : na, color=color.orange, editable=false)
+plot(zs_plot ? zs_avg_zscore_val : na, color=color.gray, editable=false)
+
+plotshape(zs_plot and buy_cond ? zs_zscore_val : na, style=shape.arrowup, color=color.green, location=location.absolute, editable=false)
+plotshape(zs_plot and sell_cond ? zs_zscore_val : na, style=shape.arrowdown, color=color.red, location=location.absolute, editable=false)
+
+//####################################################### Accumlation Distrbution #####################################################
+totalall(s) => 
+    totalall = float(na)
+    totalall := na(totalall[1]) ? s : totalall[1] + s
+    totalall
+
+highestall(s) => 
+    maxall = float(na)
+    maxall := na(maxall[1]) ? s : max(maxall[1], s)
+    maxall
+
+lowestall(s) => 
+    minall = float(na)
+    minall := na(minall[1]) ? s : min(minall[1], s)
+    minall
+
+acd_data = close > close[1] ? close - min(close[1], low) : close < close[1] ? close - max(close[1], high) : 0
+acd_ad = totalall(acd_data)
+acd_accDist = (acd_ad - lowestall(acd_ad)) /(highestall(acd_ad) - lowestall(acd_ad))
+
+acd_smoothK = 14
+acd_smoothD = 1
+acd_k = sma(stoch(close, high, low, acd_smoothK), 3)
+acd_d = sma(acd_k, acd_smoothD)
+acd_slowd =  (acd_d - lowestall(acd_d)) /(highestall(acd_d) - lowestall(acd_d))
+
+plot(acd_plot ? 1 : na, color = color.red, editable=false)
+plot(acd_plot ? 0.5 : na, color = color.gray, editable=false)
+//plot(acd_plot ? 0 : na, color = color.gray, editable=false)
+
+plot(acd_plot ? acd_accDist : na, color=color.yellow, linewidth=2, editable=false)
+plot(acd_plot ? acd_slowd : na, color=color.aqua, linewidth=2, editable=false)
+
+//####################################################### Savage Oscillator #####################################################
+so_up = rma(max(change(close), 0), 2)
+so_down = rma(-min(change(close), 0), 2)
+so_rsi = so_down == 0 ? 100 : so_up == 0 ? 0 : 100 - (100 / (1 + so_up / so_down))
+
+so_k1 = ema(stoch(close, high, low, 8), 5)
+so_k2 = ema(stoch(close, high, low, 17), 5)
+so_mins1 = (so_k1 < 100 ? so_k1 : 100) -50
+so_mins2 = (so_k2 < 100 ? so_k2 : 100) -50
+so_mins3 = (so_rsi < 100 ? so_rsi : 100) -50
+so_maxs1 = so_mins1 > -100 ? so_mins1 : -100
+so_maxs2 = so_mins2 > -100 ? so_mins2 : -100
+so_maxs3 = so_mins3 > -100 ? so_mins3 : -100
+
+so_s1 = so_maxs1 / 50.01
+so_s2 = so_maxs2 / 50.01
+so_s3 = so_maxs3 /50.01
+
+so_bull = (ema((so_s1 + so_s2 + so_s3)/3, 1)) * 10
+so_wa20 = wma(so_bull, 20)
+so_wa10 = wma(so_bull, 10)
+so_spdChng = so_bull < 1.5 ? so_wa20 - 1.5 : so_wa10 - 1.5
+so_bear = so_spdChng - so_bull
+so_middle = ((so_bull - so_bear)/2)+ so_bear
+
+so_down_reversal_warning = so_bull > 8
+so_up_reversal_warning = so_bull < -8
+
+plot(so_plot ? 8 : na, color=color.red, editable=false)
+plot(so_plot ? 7 : na, color=color.orange, editable=false)
+plot(so_plot ? -7 : na, color=color.blue, editable=false)
+plot(so_plot ? -8 : na, color=color.green, editable=false)
+
+plot(so_plot ? so_bull : na, style=plot.style_linebr, linewidth=2, color=color.green, editable=false)
+plot(so_plot ? so_bear : na, style=plot.style_linebr, linewidth=2, color=color.red, editable=false)
+plot(so_plot ? so_middle : na, style=plot.style_linebr, linewidth=1, color=color.gray, editable=false)
+
+plotshape(so_plot and so_down_reversal_warning ? 0 : na, style=shape.labeldown, text="S", textcolor=color.white, color=color.red, editable=false, location=location.absolute, size=size.small)
+plotshape(so_plot and so_up_reversal_warning ? 0 : na, style=shape.labelup, text="B", textcolor=color.white, color=color.green, editable=false, location=location.absolute, size=size.small)
+
+//####################################################### Hot Zone RSI #####################################################
+hzr_length = 14
+hzr_upperLine = 60
+hzr_middleLine = 0
+hzr_lowerLine = -60
+
+hzr_vix_up_side(i) =>
+    vix_up_close =(stdev(close, 252) * i) + close
+    vix_up_low = (stdev(low, 252) * i) + low
+    vix_up = (highest(vix_up_close, 252) - vix_up_low) / highest(vix_up_close, 252) * 100
+   
+hzr_vix_down_side(i) =>
+    vix_dn_close = close - (stdev(close, 252) * i)
+    vix_dn_low = low - (stdev(low, 252) * i)
+    vix_dn = (highest(vix_dn_close, 252) - vix_dn_low) / highest(vix_dn_close, 252) * 100
+
+//iv percentile    
+hzr_vix_fix=(hzr_vix_up_side(0) + hzr_vix_down_side(0)) / 2
+hzr_pctileRank = percentrank(hzr_vix_fix, 252)
+
+hzr_hi = highest(hzr_pctileRank, 252)
+hzr_lo = lowest(hzr_pctileRank, 252)
+hzr_percentile = ((hzr_pctileRank - hzr_lo) / (hzr_hi - hzr_lo) * 100) * -1
+hzr_lowend = hzr_percentile < 25
+hzr_highend = hzr_percentile > 50
+
+//rsi
+hzr_netChgAvg = rma(close - close[1], hzr_length)
+hzr_totChgAvg = rma(abs(close - close[1]), hzr_length)
+hzr_chgRatio = hzr_totChgAvg != 0 ? hzr_netChgAvg / hzr_totChgAvg : 0
+hzr_rsi = (50 * (hzr_chgRatio + 1)) * -1
+
+hzr_hotZone = hzr_percentile - hzr_rsi
+hzr_hotZoneLine = plot(hzr_plot ? hzr_hotZone : na, color=color.white, editable=false, style=plot.style_line, linewidth=1)
+
+hzr_p1 = plot(hzr_plot ? hzr_upperLine : na, color=color.red, editable=false)
+//hzr_p2 = plot(hzr_plot ? hzr_middleLine : na, color=color.gray, editable=false)
+hzr_p3 = plot(hzr_plot ? hzr_lowerLine : na, color=color.lime, editable=false)
+
+fill(hzr_p1, hzr_hotZoneLine, color=color.lime, editable=false)
+fill(zero_line_plot, hzr_hotZoneLine, color=color.red, editable=false)
+
+//caution
+plot(hzr_plot and hzr_hotZone < -45 and hzr_hotZone > -70 ? hzr_lowerLine : na, style=plot.style_circles, color=color.orange, editable=false, linewidth=3)
+
+//hot zone
+plot(hzr_plot and hzr_hotZone <= -70 ? 0 : na, style=plot.style_circles, color=color.red, editable=false, linewidth=4)
+
+hzr_entrySignal = crossover(hzr_hotZone, hzr_lowerLine)
+plotshape(hzr_plot and hzr_entrySignal, style=shape.triangleup, color=color.lime, location=location.bottom, editable=false, size=size.small)
+
+hzr_exitSignal = crossunder(hzr_hotZone, hzr_upperLine)
+plotshape(hzr_plot and hzr_exitSignal, style=shape.triangledown, color=color.red, location=location.top, editable=false, size=size.small)

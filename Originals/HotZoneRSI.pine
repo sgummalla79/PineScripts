@@ -1,0 +1,56 @@
+//#HOTZONE LINE UPPER: RSI-IV_percentile indicator
+//#developed by Chewie76 with help from FateOwnzYou 10-1-2020
+//modified for TradingView by egshih
+//@version=4
+study("HOTZONE LINE UPPER: RSI-IV_percentile indicator", overlay=true)
+
+// Global Variables //
+length = input(defval=14, title="Length")
+price = close
+NetChgAvg = rma( price - price[1], length)
+TotChgAvg = rma(abs(price - price[1]), length)
+ChgRatio = TotChgAvg != 0 ? NetChgAvg / TotChgAvg : 0
+RSI = (50 * (ChgRatio + 1)) * -1
+RSI1 = 50 * (ChgRatio + 1)
+TakeProfit = 60
+BUY = -60
+//Implied Volatility Function Creation.
+// Functions taken from https://www.tradingview.com/script/E8zeTYik-Implied-Volatility-Suite/ Used the VixFix
+//Originally created by SegaReko @ TradingView.com
+VIX_Upside(i) =>
+    VIXUPClose=(stdev(close,252)*i)+close
+    VIXUPLow=(stdev(low,252)*i)+low
+    VixUP=(highest(VIXUPClose, 252) - VIXUPLow) / highest(VIXUPClose, 252) * 100
+    
+VIX_Downside(i) =>
+    VIXDNClose=close-(stdev(close,252)*i)
+    VIXDNLow=low-(stdev(low,252)*i)
+    VixDN=(highest(VIXDNClose, 252) - VIXDNLow) / highest(VIXDNClose, 252) * 100
+//VixFix Implied Vol.
+VixFix=(VIX_Upside(0)+VIX_Downside(0))/2
+pctileRank = percentrank(VixFix, 252)
+data = pctileRank
+hi = highest(data, 252)
+lo = lowest(data, 252)
+Percentile = ((data - lo) / (hi - lo) * 100) * -1
+Percentile2 = (data - lo) / (hi - lo) * 100
+lowend = Percentile < 25
+highend = Percentile > 50
+HotZone = Percentile - RSI
+//HOTZone Line dots ### For Horiziontal Review Taken out since we are only using this for Upper Indicator
+//CAUTION1 = HotZone < -45 and HotZone > -70
+//plotshape(CAUTION1,title="Caution1", style=shape.circle,location=location.abovebar, color=color.yellow)
+//HOT1 = HotZone <= -70
+//plotshape(HOT1,title="Hotzone1", style=shape.circle,location=location.abovebar, color=color.red)
+
+// HotZone dots ###
+RSIIV1 = (Percentile2 - RSI1 >= 30 and RSI1 > 32 and RSI1 < 40)
+plotshape(RSIIV1,title="Caution", style=shape.circle,location=location.abovebar, color=color.yellow)
+RSIIV = Percentile2 - RSI1 >= 40 and RSI1 < 32
+plotshape(RSIIV,title="Hot", style=shape.circle,location=location.abovebar, color=color.red)
+
+//HZ Line Arrows#
+UpSignal = crossover(HotZone, BUY)
+plotshape(UpSignal,title="Buy", style=shape.arrowup,location=location.belowbar, color=color.green, text= "Buy HZ")
+DownSignal = crossunder(HotZone, TakeProfit)
+plotshape(DownSignal,title="Sell", style=shape.arrowdown,location=location.abovebar, color=color.red, text= "Sell HZ")

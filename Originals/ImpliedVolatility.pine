@@ -1,0 +1,124 @@
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+// © SegaRKO
+
+//@version=4
+study("Implied Volatility Suite",precision=1)
+
+//Implied Volatility Type
+VolCalc= input(title="Calculation of Implied Volatility", defval="Model Implied Volatility", options=["Model Implied Volatility","VixFix"])
+
+//Model Expiry and Length Parameters
+src=close
+Minutes = input(0, title="Minutes until expiry (Model-Only)")
+Hours = input(0, title="Hours until expiry (Model-Only)")
+Days = input(365, minval=0, defval=365, title="Days until expiry, including weekends and holidays (Model-Only)")
+Expiry = (Hours + Minutes / 60) / 24 + Days
+IVlen=365
+Interval_Width = 1
+
+//Model-Based Volatility Smile Functions
+Model_Upside(i) =>
+    UP=(stdev(src,IVlen)*i)+src
+    LogReturnUP=log(UP[1]/UP[2])
+    AverageUP=sma(LogReturnUP,IVlen)
+    STDEVUP=stdev(LogReturnUP,IVlen)
+    Expiry_AverageUP = Expiry * AverageUP
+    Expiry_STDEVUP = STDEVUP * sqrt(Expiry)
+    upperUP = UP * exp(Expiry_AverageUP + Interval_Width * Expiry_STDEVUP)
+    lowerUP = UP * exp(Expiry_AverageUP - Interval_Width * Expiry_STDEVUP)
+    widthUP=upperUP-lowerUP
+    standard_devUP=widthUP/2
+    IV_upside=(standard_devUP / (UP * sqrt(Expiry/365)))*100
+        
+
+Model_Downside(i) =>
+    DN=src-(stdev(src,IVlen)*i)
+    LogReturnDN=log(DN[1]/DN[2])
+    AverageDN=sma(LogReturnDN,IVlen)
+    STDEVDN=stdev(LogReturnDN,IVlen)
+    Expiry_AverageDN = Expiry * AverageDN
+    Expiry_STDEVDN = STDEVDN * sqrt(Expiry)
+    upperDN = DN * exp(Expiry_AverageDN + Interval_Width * Expiry_STDEVDN)
+    lowerDN = DN * exp(Expiry_AverageDN - Interval_Width * Expiry_STDEVDN)
+    widthDN=upperDN-lowerDN
+    standard_devDN=widthDN/2
+    IV_downside=(standard_devDN / (DN * sqrt(Expiry/365)))*100
+
+
+Model_Based_Skew=avg(Model_Upside(1),Model_Upside(2),Model_Upside(3))-avg(Model_Downside(1),Model_Downside(2),Model_Downside(3))
+
+//Model-Based Implied Vol.
+IV=(Model_Upside(0)+Model_Downside(0))/2
+
+
+//VixFix Length Parameters
+VIXFixLength = input(252, defval=22, title="VixFix Length (recommended values: 9, 22, 66, 132, or 252)")
+VIXlength2 =252
+//VixFix Volatility Smile Functions
+VIX_Upside(i) =>
+    VIXUPClose=(stdev(close,VIXFixLength)*i)+close
+    VIXUPLow=(stdev(low,VIXFixLength)*i)+low
+    VixUP=(highest(VIXUPClose, VIXFixLength) - VIXUPLow) / highest(VIXUPClose, VIXFixLength) * 100
+    
+VIX_Downside(i) =>
+    VIXDNClose=close-(stdev(close,VIXFixLength)*i)
+    VIXDNLow=low-(stdev(low,VIXFixLength)*i)
+    VixDN=(highest(VIXDNClose, VIXFixLength) - VIXDNLow) / highest(VIXDNClose, VIXFixLength) * 100
+
+VixFix_Skew=avg(VIX_Upside(1),VIX_Upside(2),VIX_Upside(3))-avg(VIX_Downside(1),VIX_Downside(2),VIX_Downside(3))
+
+//VixFix Implied Vol.
+VixFix=(VIX_Upside(0)+VIX_Downside(0))/2
+
+//Logic Statements
+//Implied Volatility Logic
+Volatility=if(VolCalc=="VixFix")
+    VixFix
+else
+    IV
+
+//Length for rank and percentile logic
+Len=if(VolCalc=="VixFix")
+    VIXlength2
+else
+    IVlen
+    
+//Implied Volatility Rank
+IVR=(Volatility - lowest(Volatility, Len)) / 
+   (highest(Volatility, Len) - lowest(Volatility, Len)) * 100
+   
+//Implied Volatility Percentile
+pctileRank = percentrank(Volatility, Len)
+
+//Skew Index Logic
+Skew_Index=if(VolCalc=="VixFix")
+    VixFix_Skew
+else
+    Model_Based_Skew
+
+VolatilityChoice= input(title="Choose Volatility Data", defval="IV Rank", options=["Implied Volatility", "IV Rank","IV Percentile","Volatility Skew Index"])
+
+//Volatiliy Data Logic
+VolatilityData=if(VolatilityChoice=="IV Percentile")
+    pctileRank
+else if(VolatilityChoice=="IV Rank")
+    IVR
+else if(VolatilityChoice=="Volatility Skew Index")
+    Skew_Index
+else if(VolatilityChoice=="Implied Volatility")
+    Volatility
+
+
+//Color Logic
+col=if(VolatilityChoice=="IV Percentile")
+    pctileRank < 50 ? color.red : pctileRank >= 50 ? color.green : color.green
+else if(VolatilityChoice=="IV Rank")
+    IVR < 50 ? color.red : IVR >= 50 ? color.green : color.green
+else if(VolatilityChoice=="Volatility Skew Index")
+    color.aqua
+else if(VolatilityChoice=="Implied Volatility")
+    color.yellow
+
+
+//Plot Statements
+plot(VolatilityData, color=col, title="Volatility Data")

@@ -1,0 +1,325 @@
+//@version=4
+study(title="My_Combo_Indicators", shorttitle="MCIU", overlay=true)
+
+barSize = timeframe.isdaily ? timeframe.multiplier*86400000 : 
+           timeframe.isseconds? timeframe.multiplier*1000 :
+           timeframe.isminutes? timeframe.multiplier*60000 : (time[0]-time[1])
+
+label_xPos   = timenow + barSize * 3
+
+//##################### custom functions ############
+truncate(number, decimals) =>
+    factor = pow(10, decimals)
+    int(number * factor) / factor
+
+//#####################
+alg_useCustomRes = input(false, title="Alligator - Use Custom Resolution?")
+alg_resCustom = input(title="Alligator - Use Custom Timeframe?", type=input.resolution, defval="240")
+alg_cloud_fill = input(true, title="Alligator - Show Cloud?")
+alg_plot = input(false, title="🐲 Plot Alligator")
+ma_plot = input(true, title="Plot Moving Averages")
+lele_plot = input(false, title="Plot Lele Exhaution")
+bb_plot = input(false, title="Plot Bollinger Bands")
+td_seq_plot = input(true, "Plot TD Sequential")
+tts_plot = input(true, title="Plot Trend Trading System") 
+tts_ebc = input(true, title="Color Bars Based on Trend Trade System")
+
+
+//################ Bollinger Bands ##################
+[bb_middle, bb_upper, bb_lower] = bb(close, 20, 2)
+
+bb_p1 = plot(bb_plot ? bb_upper : na, color=color.red, title="Upper Band", editable=false)
+plot(bb_plot ? bb_middle : na , color=color.white, title="BB Moving Average", transp=0, editable=false)
+bb_p2 = plot(bb_plot ? bb_lower : na, color=color.green, title="Lower Band", editable=false)
+fill(bb_p1, bb_p2, color=color.blue, title="Background", transp=90, editable=false)
+
+//################### Trend Trade System #####################
+tts_ema_length = input(26, title="Trend Trade System EMA Length") 
+tts_ema = ema(low, tts_ema_length)
+
+tts_vwap_length = input(13, title="Trend Trade System VWAP Length")
+tts_vwap = ema(vwap, tts_vwap_length)
+
+tts_rsi = rsi(close, 14)
+[tts_macd, tts_signal, tts_hist] = macd(close, 12,26,9)
+
+plot(tts_plot ? tts_vwap : na, color= color.gray, style=plot.style_line, title="Trend Trade System VWAP Line")
+plot(tts_plot ? tts_ema : na , color=color.orange, style=plot.style_line, title="Trend Trade System EMA Line")
+
+tts_cond1 = (tts_rsi > 55 and close > tts_ema) ? color.lime : (tts_rsi > 50 and close > tts_ema) ? color.orange : (tts_rsi > 50 and close < tts_ema) ? color.black : na
+barcolor(tts_ebc ? tts_cond1 : na, editable=false)
+
+tts_cond2 = (tts_rsi < 45 and close < tts_ema) ? color.red : (tts_rsi < 50 and close < tts_ema) ? color.yellow : (tts_rsi < 50 and close > tts_ema) ? color.black : na
+barcolor(tts_ebc ? tts_cond2 : na, editable=false)
+
+tts_setupLong = int(na)
+tts_setupShort = int(na)
+ 
+if (tts_rsi > 55 and close > tts_ema) //lime
+    if (nz(tts_setupLong[1]) == 0)
+        tts_setupLong := nz(tts_setupLong[1]) + 1
+        tts_setupShort := nz(tts_setupShort[1])     //----------->but continue the red numbering as down is not closed yet until green 2
+    else
+        if (nz(tts_setupLong[1]) == 1 and close > close[1] and high > high[1])
+            tts_setupLong := nz(tts_setupLong[1]) + 1
+            tts_setupShort := 0
+        else
+            tts_setupLong := nz(tts_setupLong[1])
+            tts_setupShort := nz(tts_setupShort[1])
+else 
+    if (tts_rsi < 45 and close < tts_ema) //red
+        if (nz(tts_setupShort[1]) == 0)
+            tts_setupShort := nz(tts_setupShort[1]) + 1
+            tts_setupLong := nz(tts_setupLong[1])   //----------->but continue the green numbering as up is not closed yet until red 2
+        else
+            if (nz(tts_setupShort[1]) == 1 and close < close[1] and low < low[1])
+                tts_setupShort := nz(tts_setupShort[1]) + 1
+                tts_setupLong := 0
+            else
+                tts_setupLong := nz(tts_setupLong[1])
+                tts_setupShort := nz(tts_setupShort[1])
+    else
+        if (tts_rsi > 50 and close > tts_ema) or (tts_rsi < 50 and close < tts_ema) or (tts_rsi > 50 and close < tts_ema) or (tts_rsi < 50 and close > tts_ema) //orange or yellow or black
+            if (nz(tts_setupLong[1]) > 1)
+                tts_setupLong := nz(tts_setupLong[1])
+            else
+                if (nz(tts_setupShort[1]) > 1)
+                    tts_setupShort := nz(tts_setupShort[1])
+
+                    
+bgcolor(tts_setupLong == 2 and tts_setupLong[1] != 2 ? color.lime : na, editable=false, transp=80)
+bgcolor(tts_setupShort == 2 and tts_setupShort[1] != 2 ? color.red : na, editable=false, transp=80)
+
+tts_setup_label_text = "Long = " + tostring(nz(tts_setupLong)) + "\nShort = " + tostring(nz(tts_setupShort)) + "\nMACD = " + tostring(truncate(tts_hist,2)) + "\nRSI = " + tostring(truncate(tts_rsi,2))
+
+var label tts_setup_label = na
+label.delete(tts_setup_label)
+tts_setup_label := label.new(x=label_xPos, y=high, xloc=xloc.bar_time, yloc=yloc.price, text=tts_setup_label_text, textcolor=color.white, style=label.style_label_left, color=tts_hist > 0 ? color.green : color.red)
+
+
+//########################### TD Sequential ########################################
+showSetup = input(true, "Show setup")
+showPerfect = input(true, "Show perfect counts")
+showOnlyCompletion = input(false, "Only show completions")
+showTDST = input(true, "Show TDST Support and Resistance")
+showRisk = input(true, "Show risk line")
+
+shortColour = color.green
+longColour = color.red
+smoothedColour = color.black
+
+setupShort = int(na)
+setupLong = int(na)
+setupCount = int(na)
+setupColour = color(na)
+perfectSetup = bool(na)
+
+setupShort := if close < close[4]
+    0
+else
+    if setupShort[1] == 9
+        1
+    else
+        nz(setupShort[1] + 1)
+
+setupLong := if close > close[4]
+    0
+else
+    if setupLong[1] == 9
+        1
+    else
+        nz(setupLong[1] + 1)
+
+setupCount := max(setupShort, setupLong)
+setupColour := setupShort > 0 ? setupLong > 0 ? smoothedColour : shortColour : longColour
+
+perfectSetup := showPerfect and (setupShort == 8 and high >= high[1] and high >= high[2] or 
+   setupShort == 9 and high >= high[2] and high >= high[3] or 
+   setupLong == 8 and low <= low[1] and low <= low[2] or 
+   setupLong == 9 and low <= low[2] and low <= low[3])
+
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 1, title="Setup 1", char="1", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 2, title="Setup 2", char="2", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 3, title="Setup 3", char="3", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 4, title="Setup 4", char="4", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 5, title="Setup 5", char="5", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 6, title="Setup 6", char="6", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and showSetup and (not showOnlyCompletion or barstate.islast) and setupCount == 7, title="Setup 7", char="7", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and not perfectSetup and (not showOnlyCompletion or barstate.islast) and showSetup and setupCount == 8, title="Setup 8", char="8", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and not perfectSetup and showSetup and setupCount == 9, title="Setup 9", char="9", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+plotchar(td_seq_plot and perfectSetup and showSetup and setupCount == 8, title="Perfect setup 8", char="➑", color=setupColour, transp=0, editable=false, location=location.abovebar)
+plotchar(td_seq_plot and perfectSetup and showSetup and setupCount == 9, title="Perfect setup 9", char="➒", color=setupColour, transp=0, editable=false, location=location.abovebar)
+
+tdstSupport = float(na)
+tdstResistance = float(na)
+tdRisk = float(na)
+riskbar = int(na)
+
+highest_2 = highest(9)
+tdstResistance := not td_seq_plot or not showTDST ? na : setupLong == 9 ? highest_2 : close > tdstResistance[1] ? na : tdstResistance[1]
+lowest_2 = lowest(9)
+tdstSupport := not td_seq_plot or not showTDST ? na : setupShort == 9 ? lowest_2 : close < tdstSupport[1] ? na : tdstSupport[1]
+
+plot(tdstResistance, title="TDST Resistance", color=longColour, style=plot.style_circles, linewidth=1, editable=false)
+plot(tdstSupport, title="TDST Support", color=shortColour, style=plot.style_circles, linewidth=1, editable=false)
+
+lowest_of_9_bars_0 = lowestbars(9)[0]
+highest_of_9_bars_0 = highestbars(9)[0]
+
+if not td_seq_plot or not showRisk
+    tdRisk := na
+    tdRisk
+else
+    if setupLong == 9
+        riskbar := -1 * lowest_of_9_bars_0
+        tdRisk := low[riskbar] - tr[riskbar]
+        tdRisk
+    else
+        if setupShort == 9
+            riskbar := -1 * highest_of_9_bars_0
+            tdRisk := high[riskbar] + tr[riskbar]
+            tdRisk
+        else
+            tdRisk := min(open, close) < tdRisk[1] and max(open, close) > tdRisk[1] ? na : tdRisk[1]
+            tdRisk
+
+plot(tdRisk, title="TD Risk", color=color.blue, style=plot.style_circles, linewidth=1, editable=false)
+
+//################### Moving Averages #####################
+
+alg_res = alg_useCustomRes ? alg_resCustom : timeframe.period
+
+smma(src, length) =>
+    smma = 0.0
+    sma_value = sma(src, length)
+    smma := na(smma[1]) ? sma_value : (smma[1] * (length - 1) + src) / length
+
+f_ma(src, len, type) =>
+    float result = 0
+
+    if type == "EMA"
+        result := ema(src, len)
+    if type == "SMA"
+        result := sma(src, len)
+    if type == "RMA"
+        result := rma(src, len)
+    if type == "SMMA"
+        result := smma(src, len)
+    if type == "WMA"
+        result := wma(src, len)
+    if type == "VWMA"
+        result := vwma(src, len)
+    result
+    
+lipsLength  = 5
+lipsOffSet  = 3
+teethLength  = 8
+teethOffSet  = 5
+jawLength  = 13
+jawOffset  = 8
+
+///
+ma_0_len = input(5, title="0. Moving Average", type=input.integer)
+ma_0_type = input(defval='EMA', title='0. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'RMA'])
+ma_0_col = color.gray
+ma_0_reg = f_ma(close, ma_0_len, ma_0_type)
+ma_0_alg = security(syminfo.tickerid, alg_res, smma(hl2, lipsLength), barmerge.gaps_off, barmerge.lookahead_on)
+ma_0_offset = alg_plot ? lipsOffSet : 0
+ma_0 = alg_plot ? ma_0_alg : ma_0_reg
+lips = plot(ma_plot or alg_plot ? ma_0 : na, color=ma_0_col, linewidth=1, title="0. Moving Average", offset=ma_0_offset, display=display.none)
+
+/// 1
+ma_1_len = input(8, title="1. Moving Average", type=input.integer)
+ma_1_type = input(defval='EMA', title='1. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_1_col = color.red
+ma_1_reg = f_ma(close, ma_1_len, ma_1_type)
+ma_1_alg = security(syminfo.tickerid, alg_res, smma(hl2, teethLength), barmerge.gaps_off, barmerge.lookahead_on)
+ma_1_offset = alg_plot ? teethOffSet : 0
+ma_1 = alg_plot ? ma_1_alg : ma_1_reg
+teeth = plot(ma_plot or alg_plot  ? ma_1 : na, color=ma_1_col, linewidth=1, title="1. Moving Average", offset=ma_1_offset, display=display.none)
+
+/// 2
+ma_2_len = input(13, title="2. Moving Average", type=input.integer)
+ma_2_type = input(defval='EMA', title='2. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_2_col = color.orange
+ma_2_reg = f_ma(close, ma_2_len, ma_2_type)
+ma_2_alg = security(syminfo.tickerid, alg_res, smma(hl2, jawLength), barmerge.gaps_off, barmerge.lookahead_on)
+ma_2_offset = alg_plot ? jawOffset : 0
+ma_2 = alg_plot ? ma_2_alg : ma_2_reg
+jaw = plot(ma_plot or alg_plot ? ma_2 : na, color=ma_2_col, linewidth=1, title="2. Moving Average", offset=ma_2_offset, display=display.none)
+
+fill(lips, teeth, color = alg_plot and alg_cloud_fill ? (ma_0 > ma_1 ? color.lime : color.new(color.white,70)) : na)
+fill(teeth, jaw, color = alg_plot and alg_cloud_fill ? (ma_1 > ma_2 ? color.new(color.white,70) : color.red) : na )
+fill(lips, jaw, color = alg_plot and alg_cloud_fill ? (ma_0 > ma_2 ? color.lime : color.red) : na )
+
+/// 3
+ma_3_len = input(21, title="3. Moving Average", type=input.integer)
+ma_3_type = input(defval='EMA', title='3. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_3_col = color.white
+ma_3 = f_ma(close, ma_3_len, ma_3_type)
+plot(ma_plot ? ma_3 : na, color=ma_3_col, linewidth=1, title="3. Moving Average", display=display.none)
+
+///
+ma_4_len = input(34, title="4. Moving Average", type=input.integer)
+ma_4_type = input(defval='EMA', title='4. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_4_col = color.yellow
+ma_4 = f_ma(close, ma_4_len, ma_4_type)
+plot(ma_plot ? ma_4 : na, color=ma_4_col, linewidth=1, title="4. Moving Average", display=display.none)
+
+///
+ma_5_len = input(55, title="5. Moving Average", type=input.integer)
+ma_5_type = input(defval='EMA', title='5. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_5_col = color.blue
+ma_5 = f_ma(close, ma_5_len, ma_5_type)
+plot(ma_plot ? ma_5 : na, color=ma_5_col, linewidth=1, title="5. Moving Average")
+
+///
+ma_6_len = input(100, title="6. Moving Average", type=input.integer)
+ma_6_type = input(defval='SMA', title='6. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_6_col = color.purple
+ma_6 = f_ma(close, ma_6_len, ma_6_type)
+plot(ma_plot ? ma_6 : na, color=ma_6_col, linewidth=1, title="6. Moving Average")
+
+///
+ma_7_len = input(200, title="7. Moving Average", type=input.integer)
+ma_7_type = input(defval='SMA', title='7. Moving Average Type', options=['SMA', 'EMA', 'WMA', 'VWMA', 'SMMA', 'RMA'])
+ma_7_col = color.green
+ma_7 = f_ma(close, ma_7_len, ma_7_type)
+plot(ma_plot ? ma_7 : na, color=ma_7_col, linewidth=1, title="7. Moving Average")
+
+//################ Leledc Exhaution 
+lele_maj_qual=6
+lele_maj_len=30
+lele_min_qual=5
+lele_min_len=5
+lele_maj=input(true,title="Leledc Exhaution Show Major")
+lele_min=input(true,title="Leledc Exhaution Show Minor")
+
+lele(qual,len)=>
+    bindex = float(na)
+    bindex := nz(bindex[1],0)
+    
+    sindex = float(na)
+    sindex := nz(sindex[1],0)
+    ret=0
+    if (close>close[4]) 
+        bindex:=bindex + 1
+    if(close<close[4]) 
+        sindex:=sindex + 1
+    if (bindex>qual) and (close<open) and high>=highest(high,len) 
+        bindex:=0
+        ret:=-1
+    if ((sindex>qual) and (close>open) and (low<= lowest(low,len)))
+        sindex:=0
+        ret:=1
+    return=ret
+
+lele_major=lele(lele_maj_qual,lele_maj_len)
+lele_minor=lele(lele_min_qual,lele_min_len)
+
+plotchar(lele_plot and lele_maj ? (lele_major == -1 ? high :na) : na, char='•',location=location.absolute,color=color.red,transp=0,size=size.normal)
+plotchar(lele_plot and lele_maj ? (lele_major == 1 ? low :na) : na  , char='•',location=location.absolute,color=color.lime,transp=0,size=size.normal)
+
+plotchar(lele_plot and lele_min ? (lele_minor == -1 ? high :na) : na, char='○',location=location.absolute,color=color.red,transp=0,size=size.normal)
+plotchar(lele_plot and lele_min ? (lele_minor == 1 ? low :na) : na , char='○',location=location.absolute,color=color.lime,transp=0,size=size.normal)

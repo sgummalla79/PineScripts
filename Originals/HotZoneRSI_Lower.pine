@@ -1,0 +1,68 @@
+//#HOTZONE LINE UPPER: RSI-IV_percentile indicator
+//#developed by Chewie76 with help from FateOwnzYou 10-1-2020
+//modified for TradingView by egshih
+//@version=4
+study("HOTZONE LINE UPPER: RSI-IV_percentile indicator", overlay=false)
+
+
+// Global Variables //
+length = input(defval=14, title="Length")
+price = close
+NetChgAvg = rma( price - price[1], length)
+TotChgAvg = rma(abs(price - price[1]), length)
+ChgRatio = TotChgAvg != 0 ? NetChgAvg / TotChgAvg : 0
+RSI = (50 * (ChgRatio + 1)) * -1
+RSI1 = 50 * (ChgRatio + 1)
+TakeProfit = 60
+TakeProfitLine=plot(TakeProfit,title="TakeProfit",color=color.red)
+BUY = -60
+BuyLine=plot(BUY,title="Buy",color=color.green)
+MiddleLine=0
+MidLine=plot(MiddleLine,title="Middle Line",color=color.black)
+
+//Implied Volatility Function Creation.
+// Functions taken from https://www.tradingview.com/script/E8zeTYik-Implied-Volatility-Suite/ Used the VixFix
+//Originally created by SegaReko @ TradingView.com
+VIX_Upside(i) =>
+    VIXUPClose=(stdev(close,252)*i)+close
+    VIXUPLow=(stdev(low,252)*i)+low
+    VixUP=(highest(VIXUPClose, 252) - VIXUPLow) / highest(VIXUPClose, 252) * 100
+   
+VIX_Downside(i) =>
+    VIXDNClose=close-(stdev(close,252)*i)
+    VIXDNLow=low-(stdev(low,252)*i)
+    VixDN=(highest(VIXDNClose, 252) - VIXDNLow) / highest(VIXDNClose, 252) * 100
+//VixFix Implied Vol.
+VixFix=(VIX_Upside(0)+VIX_Downside(0))/2
+pctileRank = percentrank(VixFix, 252)
+
+///////End of Implied Volatility
+data = pctileRank
+hi = highest(data, 252)
+lo = lowest(data, 252)
+Percentile = ((data - lo) / (hi - lo) * 100) * -1
+Percentile2 = (data - lo) / (hi - lo) * 100
+lowend = Percentile < 25
+highend = Percentile > 50
+
+HotZone = Percentile - RSI
+HotZoneLine=plot(HotZone,title="HotZone",color=color.purple)
+
+fill(MidLine,HotZoneLine,color=color.red)
+fill(TakeProfitLine,HotZoneLine,color=color.green)
+
+//HOTZone Line dots ###
+CAUTION1 = HotZone < -45 and HotZone > -70
+plotshape(CAUTION1,title="Caution1", style=shape.circle,location=location.top, color=color.yellow)
+
+HOT1 = HotZone <= -70
+plotshape(HOT1,title="Hotzone1", style=shape.circle,location=location.top, color=color.red)
+
+UpSignal = crossover(HotZone,BUY)
+//plotshape(UpSignal,title="Buy",style=label.style_arrowup,location=location.bottom,color=color.green)
+plotchar(UpSignal,title="Buy",char="⬆", color=color.green,location=location.bottom,text="Buy")
+
+
+DownSignal = crossunder(HotZone,TakeProfit)
+plotchar(DownSignal,title="Sell",char="⬇", color=color.red,location=location.top,text="Sell")
+//plotshape(DownSignal,title="Sell",style=label.style_arrowup,location=location.top,color=color.red)
